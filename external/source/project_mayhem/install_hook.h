@@ -27,5 +27,8 @@
  *
  */
 
-int local_install_iat_hook_by_name(const char *module_name, void *new_address, const char *function_name);
-int local_install_iat_hook_by_ordinal(const char *module_name, void *new_address, long target_ordinal);
+#define WIN32_NO_STATUS
+#include <windows.h>
+#undef WIN32_NO_STATUS
+
+int local_install_inline_hook_by_name(const char *module_name, const char *function_name, unsigned char *shellcode, size_t shellcode_sz, void **new_address);
