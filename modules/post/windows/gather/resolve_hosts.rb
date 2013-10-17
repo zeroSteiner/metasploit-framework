@@ -10,6 +10,10 @@ require 'rex'
 
 class Metasploit3 < Msf::Post
 
+  require 'msf/core/module/deprecated'
+  include Msf::Module::Deprecated
+  deprecated Date.new(2013, 12, 9), 'post/multi/gather/resolve_hosts'
+
   def initialize(info={})
     super( update_info( info,
       'Name'          => 'Windows Resolve Hosts',
@@ -55,7 +59,11 @@ class Metasploit3 < Msf::Post
     )
 
     response.each do |result|
-      table << [result[:hostname], result[:ip]]
+      if result[:ip].nil?
+        table << [result[:hostname], '[Failed To Resolve]']
+      else
+        table << [result[:hostname], result[:ip]]
+      end
     end
 
     table.print
