@@ -41,6 +41,7 @@ require 'rex/parser/nexpose_simple_nokogiri'
 require 'rex/parser/nmap_nokogiri'
 require 'rex/parser/openvas_nokogiri'
 require 'rex/parser/wapiti_nokogiri'
+require 'rex/parser/outpost24_nokogiri'
 
 # Legacy XML parsers -- these will be converted some day
 require 'rex/parser/ip360_aspl_xml'
@@ -2926,7 +2927,7 @@ class DBManager
   # Returns one of: :nexpose_simplexml :nexpose_rawxml :nmap_xml :openvas_xml
   # :nessus_xml :nessus_xml_v2 :qualys_scan_xml, :qualys_asset_xml, :msf_xml :nessus_nbe :amap_mlog
   # :amap_log :ip_list, :msf_zip, :libpcap, :foundstone_xml, :acunetix_xml, :appscan_xml
-  # :burp_session, :ip360_xml_v3, :ip360_aspl_xml, :nikto_xml
+  # :burp_session, :ip360_xml_v3, :ip360_aspl_xml, :nikto_xml, :outpost24_xml
   # If there is no match, an error is raised instead.
   def import_filetype_detect(data)
 
@@ -3059,6 +3060,9 @@ class DBManager
             @import_filedata[:type] = "CI"
             return :ci_xml
           end
+        when "main"
+          @import_filedata[:type] = "Outpost24 XML"
+          return :outpost24_xml
         else
           # Give up if we haven't hit the root tag in the first few lines
           break if line_count > 10
@@ -3649,7 +3653,7 @@ class DBManager
     data = ::File.open(args[:filename], "rb") {|f| f.read(f.stat.size)}
     wspace = args[:wspace] || args['wspace'] || workspace
     bl = validate_ips(args[:blacklist]) ? args[:blacklist].split : []
-    basedir = args[:basedir] || args['basedir'] || ::File.join(Msf::Config.install_root, "data", "msf")
+    basedir = args[:basedir] || args['basedir'] || ::File.join(Msf::Config.data_directory, "msf")
 
     allow_yaml = false
     btag = nil
@@ -5627,19 +5631,19 @@ class DBManager
 
   # Pull out vulnerabilities that have at least one matching
   # ref -- many "vulns" are not vulns, just audit information.
-  def find_qualys_asset_vulns(host,wspace,hobj,vuln_refs,&block)
+  def find_qualys_asset_vulns(host,wspace,hobj,vuln_refs,task_id,&block)
     host.elements.each("VULN_INFO_LIST/VULN_INFO") do |vi|
       next unless vi.elements["QID"]
       vi.elements.each("QID") do |qid|
         next if vuln_refs[qid.text].nil? || vuln_refs[qid.text].empty?
-        handle_qualys(wspace, hobj, nil, nil, qid.text, nil, vuln_refs[qid.text], nil,nil, args[:task])
+        handle_qualys(wspace, hobj, nil, nil, qid.text, nil, vuln_refs[qid.text], nil, nil, task_id)
       end
     end
   end
 
   # Takes QID numbers and finds the discovered services in
   # a qualys_asset_xml.
-  def find_qualys_asset_ports(i,host,wspace,hobj)
+  def find_qualys_asset_ports(i,host,wspace,hobj,task_id)
     return unless (i == 82023 || i == 82004)
     proto = i == 82023 ? 'tcp' : 'udp'
     qid = host.elements["VULN_INFO_LIST/VULN_INFO/QID[@id='qid_#{i}']"]
@@ -5652,7 +5656,7 @@ class DBManager
         else
           name = match[2].strip
         end
-        handle_qualys(wspace, hobj, match[0].to_s, proto, 0, nil, nil, name, nil, args[:task])
+        handle_qualys(wspace, hobj, match[0].to_s, proto, 0, nil, nil, name, nil, task_id)
       end
     end
   end
@@ -5696,11 +5700,11 @@ class DBManager
       end
 
       # Report open ports.
-      find_qualys_asset_ports(82023,host,wspace,hobj) # TCP
-      find_qualys_asset_ports(82004,host,wspace,hobj) # UDP
+      find_qualys_asset_ports(82023,host,wspace,hobj, args[:task]) # TCP
+      find_qualys_asset_ports(82004,host,wspace,hobj, args[:task]) # UDP
 
       # Report vulns
-      find_qualys_asset_vulns(host,wspace,hobj,vuln_refs,&block)
+      find_qualys_asset_vulns(host,wspace,hobj,vuln_refs, args[:task],&block)
 
     end # host
 
@@ -5918,6 +5922,36 @@ class DBManager
       doc = Rex::Parser::CIDocument.new(args,framework.db) {|type, data| yield type,data }
     else
       doc = Rex::Parser::CI.new(args,self)
+    end
+    parser = ::Nokogiri::XML::SAX::Parser.new(doc)
+    parser.parse(args[:data])
+  end
+
+  def import_outpost24_xml(args={}, &block)
+    bl = validate_ips(args[:blacklist]) ? args[:blacklist].split : []
+    wspace = args[:wspace] || workspace
+    if Rex::Parser.nokogiri_loaded
+      parser = "Nokogiri v#{::Nokogiri::VERSION}"
+      noko_args = args.dup
+      noko_args[:blacklist] = bl
+      noko_args[:wspace] = wspace
+      if block
+        yield(:parser, parser)
+        import_outpost24_noko_stream(noko_args) {|type, data| yield type,data}
+      else
+        import_outpost24_noko_stream(noko_args)
+      end
+      return true
+    else # Sorry
+      raise DBImportError.new("Could not import due to missing Nokogiri parser. Try 'gem install nokogiri'.")
+    end
+  end
+
+  def import_outpost24_noko_stream(args={},&block)
+    if block
+      doc = Rex::Parser::Outpost24Document.new(args,framework.db) {|type, data| yield type,data }
+    else
+      doc = Rex::Parser::Outpost24Document.new(args,self)
     end
     parser = ::Nokogiri::XML::SAX::Parser.new(doc)
     parser.parse(args[:data])
