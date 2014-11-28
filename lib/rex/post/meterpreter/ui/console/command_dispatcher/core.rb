@@ -109,6 +109,7 @@ class Console::CommandDispatcher::Core
     "-l" => [ false, "List active channels." ],
     "-r" => [ true,  "Read from the given channel." ],
     "-w" => [ true,  "Write to the given channel." ],
+    "-d" => [ false, "Open a channel for debug information."],
     "-h" => [ false, "Help menu." ])
 
   def cmd_channel_help
@@ -147,6 +148,8 @@ class Console::CommandDispatcher::Core
       when "-w"
         mode = :write
         chan = val
+      when "-d"
+        mode = :debug
       end
       if @@channel_opts.arg_required?(opt)
         unless chan
@@ -186,6 +189,9 @@ class Console::CommandDispatcher::Core
       cmd_read(chan)
     when :write
       cmd_write(chan)
+    when :debug
+      channel = client.core.debug_channel
+      print_status("Opened debug channel #{channel.cid}.")
     else
       # No mode, no service.
       return true

@@ -574,7 +574,8 @@ class PythonMeterpreter(object):
 				result, resp = handler(request, resp)
 			except Exception:
 				self.debug_print('[-] method ' + handler_name + ' resulted in an error')
-				traceback.print_exc(file=sys.stderr)
+				if DEBUGGING:
+					traceback.print_exc(file=sys.stderr)
 				if self.debug_channel:
 					traceback.print_exc(file=self.debug_channel)
 				result = ERROR_FAILURE
