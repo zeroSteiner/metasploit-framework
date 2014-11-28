@@ -3,6 +3,7 @@
 require 'rex/post/meterpreter/packet'
 require 'rex/post/meterpreter/extension'
 require 'rex/post/meterpreter/client'
+require 'rex/post/meterpreter/channel'
 
 # Used to generate a reflective DLL when migrating. This is yet another
 # argument for moving the meterpreter client into the Msf namespace.
@@ -167,6 +168,22 @@ class ClientCore < Extension
     client.add_extension(mod, commands)
 
     return true
+  end
+
+  #
+  # Open a channel for reading debug information.
+  #
+  def debug_channel
+    channel = nil
+    client.channels.each do |cid, channel|
+      break if channel.type == 'core_debug'
+    end
+
+    unless channel && channel.type == 'core_debug'
+      channel = Channel.create(client, 'core_debug', Rex::Post::Meterpreter::Channels::Pool)
+    end
+
+    channel
   end
 
   #

