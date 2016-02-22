@@ -76,11 +76,14 @@ class Pool < Rex::Post::Meterpreter::Channel
     begin
       data = super(length)
     rescue
+      puts 'some kinda error took place and set data to nil pool'
       data = nil
     end
 
     if (((data == nil) || (data.length == 0)) &&
         (self.eof))
+      puts 'data is nil!' if data.nil?
+      puts 'data.length is 0' if !data.nil? && data.length == 0
       raise EOFError
     end
 

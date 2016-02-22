@@ -320,7 +320,9 @@ class File < Rex::Post::Meterpreter::Extensions::Stdapi::Fs::IO
       while ((data = src_fd.read) != nil)
         dst_fd.write(data)
       end
+      puts 'data is nil' if data.nil?
     rescue EOFError
+      puts 'EOFError raised!'
     ensure
       src_fd.close
       dst_fd.close

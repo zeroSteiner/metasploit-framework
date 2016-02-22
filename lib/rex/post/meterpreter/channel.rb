@@ -182,7 +182,11 @@ class Channel
 
     begin
       response = self.client.send_request(request)
-    rescue
+    rescue => ex
+      sleep 10
+      puts 'some kinda error took place and set data to nil channel'
+      puts "An error of type #{ex.class} happened, message is #{ex.message}"
+      puts ex.backtrace
       return nil
     end
 
@@ -273,6 +277,7 @@ class Channel
       raise IOError, "Channel has been closed.", caller
     end
 
+    puts caller
     request = Packet.create_request('core_channel_close')
 
     # Populate the request
