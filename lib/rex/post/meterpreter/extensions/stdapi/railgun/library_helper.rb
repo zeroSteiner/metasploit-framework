@@ -58,6 +58,34 @@ module LibraryHelper
     return enc
   end
 
+  # coerce the return value to the specifed type
+  def get_return_value(return_type, return_value, native)
+    value = nil
+    
+    case return_type
+      when 'LPVOID', 'HANDLE', 'SIZE_T'
+        if native == 'Q<'
+          value = return_value
+        else
+          value = return_value % 4294967296
+        end
+      when 'DWORD'
+        value = return_value % 4294967296
+      when 'WORD'
+        value = return_value % 65536
+      when 'BYTE'
+        value = return_value % 256
+      when 'BOOL'
+        value = (return_value != 0)
+      when 'VOID'
+        value = nil
+      else
+        raise "unexpected return type: #{return_type}"
+    end
+    
+    value
+  end
+
   # converts 0-terminated UTF16 to ruby string
   def uniz_to_str(uniz)
     uniz.unpack("v*").pack("C*").unpack("A*")[0]

@@ -278,31 +278,8 @@ class Library
       'GetLastError' => rec_last_error,
       'ErrorMessage' => rec_err_msg
     }
-
-    #process return value
-    case function.return_type
-      when 'LPVOID', 'HANDLE'
-        if( native == 'Q<' )
-          return_hash['return'] = rec_return_value
-        else
-          return_hash['return'] = rec_return_value % 4294967296
-        end
-      when 'DWORD'
-        return_hash['return'] = rec_return_value % 4294967296
-      when 'WORD'
-        return_hash['return'] = rec_return_value % 65536
-      when 'BYTE'
-        return_hash['return'] = rec_return_value % 256
-      when 'BOOL'
-        return_hash['return'] = (rec_return_value != 0)
-      when 'VOID'
-        return_hash['return'] = nil
-      else
-        raise "unexpected return type: #{function.return_type}"
-    end
-    #puts return_hash
-    #puts "out_only_layout:"
-    #puts out_only_layout
+    
+    return_hash['return'] = get_return_value(function.return_type, rec_return_value, native)
 
     # process out-only buffers
     #puts "processing out-only buffers:"
