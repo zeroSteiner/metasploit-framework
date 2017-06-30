@@ -96,46 +96,42 @@ module LibraryHelper
     blob = ""
     #puts " building buffer: #{direction}"
     function.params.each_with_index do |param_desc, param_idx|
-      #puts "  processing #{param_desc[0]} #{param_desc[1]} #{param_desc[2]}"
       # we care only about inout buffers
-      if param_desc[2] == direction
-        buffer = nil
-        # Special case:
-        # The user can choose to supply a Null pointer instead of a buffer
-        # in this case we don't need space in any heap buffer
-        if param_desc[0][0,1] == 'P' # type is a pointer
-          if args[param_idx] == nil
-            next
-          end
-        end
+      next unless param_desc[2] == direction
+      param_arg = args[param_idx]
+      buffer = nil
+      # Special case:
+      #   The user can choose to supply a Null pointer instead of a buffer
+      #   in this case we don't need space in any heap buffer
+      next if param_desc[0][0,1] == 'P' and param_arg.nil? # type is a pointer
 
-        case param_desc[0] # required argument type
-          when "PDWORD"
-            dw = param_to_number(args[param_idx])
-            buffer = [dw].pack('V')
-          when "PWCHAR"
-            raise "param #{param_desc[1]}: string expected" unless args[param_idx].class == String
-            buffer = str_to_uni_z(args[param_idx])
-          when "PCHAR"
-            raise "param #{param_desc[1]}: string expected" unless args[param_idx].class == String
-            buffer = str_to_ascii_z(args[param_idx])
-          when "PBLOB"
-            raise "param #{param_desc[1]}: please supply your BLOB as string!" unless args[param_idx].class == String
-            buffer = args[param_idx]
-          # other types (non-pointers) don't reference buffers
-          # and don't need any treatment here
-        end
+      case param_desc[0] # required argument type
+        when 'PDWORD'
+          dw = param_to_number(param_arg)
+          buffer = [dw].pack('V')
+        when 'PWCHAR'
+          raise "param #{param_desc[1]}: string expected" unless param_arg.class == String
+          buffer = str_to_uni_z(param_arg)
+        when 'PCHAR'
+          raise "param #{param_desc[1]}: string expected" unless param_arg.class == String
+          buffer = str_to_ascii_z(param_arg)
+        when 'PBLOB'
+          param_arg = param_arg.to_binary_s if param_arg.respond_to?(:to_binary_s)
+          raise "param #{param_desc[1]}: please supply your BLOB as string!" unless param_arg.class == String
+          buffer = param_arg
+        # other types (non-pointers) don't reference buffers
+        # and don't need any treatment here
+      end
 
-        if buffer != nil
-          #puts "   adding #{buffer.length} bytes to heap blob"
-          layout[param_desc[1]] = BufferItem.new(param_idx, blob.length, buffer.length, param_desc[0])
-          blob += buffer
-          # sf: force 8 byte alignment to satisfy x64, wont matter on x86.
-          while( blob.length % 8 != 0 )
-            blob += "\x00"
-          end
-          #puts "   heap blob size now #{blob.length}"
+      unless buffer.nil?
+        #puts "   adding #{buffer.length} bytes to heap blob"
+        layout[param_desc[1]] = BufferItem.new(param_idx, blob.length, buffer.length, param_desc[0])
+        blob += buffer
+        # sf: force 8 byte alignment to satisfy x64, wont matter on x86.
+        while (blob.length % 8 != 0)
+          blob += "\x00"
         end
+        #puts "   heap blob size now #{blob.length}"
       end
     end
     #puts "  built buffer: #{direction}"

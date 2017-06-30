@@ -162,20 +162,21 @@ class Railgun
   # LPVOID parameters)
   #
   def memread(address, length)
-
-    raise "Invalid parameters." if(not address or not length)
+    raise "Invalid parameters." unless address and length
 
     request = Packet.create_request('stdapi_railgun_memread')
 
     request.add_tlv(TLV_TYPE_RAILGUN_MEM_ADDRESS, address)
-    request.add_tlv(TLV_TYPE_RAILGUN_MEM_LENGTH, length)
+    request.add_tlv(
+      TLV_TYPE_RAILGUN_MEM_LENGTH,
+      length.respond_to?(:num_bytes) ? length.num_bytes : length
+    )
 
     response = client.send_request(request)
-    if(response.result == 0)
-      return response.get_tlv_value(TLV_TYPE_RAILGUN_MEM_DATA)
-    end
-
-    return nil
+    return nil if response.result != 0
+    data = response.get_tlv_value(TLV_TYPE_RAILGUN_MEM_DATA)
+    
+    return length.respond_to?(:read) ? length.read(data) : data
   end
 
   #
@@ -183,9 +184,9 @@ class Railgun
   # LPVOID parameters)
   #
   def memwrite(address, data, length=nil)
-
+    data = data.to_binary_s if data.respond_to?(:to_binary_s)
     length = data.length if length.nil?
-    raise "Invalid parameters." if(not address or not data or not length)
+    raise "Invalid parameters." unless address and data and length
 
     request = Packet.create_request('stdapi_railgun_memwrite')
     request.add_tlv(TLV_TYPE_RAILGUN_MEM_ADDRESS, address)

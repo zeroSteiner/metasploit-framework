@@ -128,7 +128,7 @@ class MetasploitModule < Msf::Post
 
   def get_struct(address, record)
     record = record.new
-    record.read(session.railgun.memread(address, record.num_bytes))
+    session.railgun.memread(address, record)
     Hash[record.field_names.map { |field| [field, record[field]] }]
   end
 

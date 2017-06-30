@@ -136,44 +136,40 @@ class Library
     out_only_size_bytes = 0
     #puts " assembling out-only buffer"
     function.params.each_with_index do |param_desc, param_idx|
-      #puts " processing #{param_desc[1]}"
-
-      # Special case:
-      # The user can choose to supply a Null pointer instead of a buffer
-      # in this case we don't need space in any heap buffer
-      if param_desc[0][0,1] == 'P' # type is a pointer
-        if args[param_idx] == nil
-          next
-        end
-      end
-
       # we care only about out-only buffers
-      if param_desc[2] == 'out'
-        if !args[param_idx].kind_of? Integer
-          raise "error in param #{param_desc[1]}: Out-only buffers must be described by a number indicating their size in bytes"
-        end
-        buffer_size = args[param_idx]
-        if param_desc[0] == 'PDWORD'
-          # bump up the size for an x64 pointer
-          if native == 'Q<' && buffer_size == 4
-            args[param_idx] = 8
-            buffer_size = args[param_idx]
-          end
-
-          if native == 'Q<'
-            if buffer_size != 8
-              raise "Please pass 8 for 'out' PDWORDS, since they require a buffer of size 8"
-            end
-          elsif native == 'V'
-            if buffer_size != 4
-              raise "Please pass 4 for 'out' PDWORDS, since they require a buffer of size 4"
-            end
-          end
-        end
-
-        out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size_bytes, buffer_size, param_desc[0])
-        out_only_size_bytes += buffer_size
+      next unless param_desc[2] == 'out'
+      param_arg = args[param_idx]
+      # Special case:
+      #   The user can choose to supply a Null pointer instead of a buffer
+      #   in this case we don't need space in any heap buffer
+      next if param_desc[0][0,1] == 'P' and param_arg.nil? # type is a pointer
+      
+      param_arg = param_arg.num_bytes if param_desc[0] == 'PBLOB' and param_arg.respond_to?(:num_bytes)
+      
+      unless param_arg.kind_of? Integer
+        raise "error in param #{param_desc[1]}: Out-only buffers must be described by a number indicating their size in bytes"
       end
+      buffer_size = param_arg
+      if param_desc[0] == 'PDWORD'
+        # bump up the size for an x64 pointer
+        if native == 'Q<' && buffer_size == 4
+          args[param_idx] = 8
+          buffer_size = 8
+        end
+
+        if native == 'Q<'
+          if buffer_size != 8
+            raise "Please pass 8 for 'out' PDWORDS, since they require a buffer of size 8"
+          end
+        elsif native == 'V'
+          if buffer_size != 4
+            raise "Please pass 4 for 'out' PDWORDS, since they require a buffer of size 4"
+          end
+        end
+      end
+
+      out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size_bytes, buffer_size, param_desc[0])
+      out_only_size_bytes += buffer_size
     end
 
     tmp = assemble_buffer('in', function, args)
@@ -187,10 +183,10 @@ class Library
     # now we build the stack
     # every stack dword will be described by two dwords:
     # first dword describes second dword:
-    #	0 - literal,
-    #	1 = relative to in-only buffer
-    #	2 = relative to out-only buffer
-    #	3 = relative to inout buffer
+    #   0 - literal,
+    #   1 = relative to in-only buffer
+    #   2 = relative to out-only buffer
+    #   3 = relative to inout buffer
 
     # (literal numbers and pointers to buffers we have created)
     literal_pairs_blob = ""
@@ -267,10 +263,6 @@ class Library
 
     response = client.send_request(request)
 
-    #puts "receiving Stuff from meterpreter"
-    #puts "out_only_layout:"
-    #puts out_only_layout
-
     rec_inout_buffers = response.get_tlv_value(TLV_TYPE_RAILGUN_BACK_BUFFERBLOB_INOUT)
     rec_out_only_buffers = response.get_tlv_value(TLV_TYPE_RAILGUN_BACK_BUFFERBLOB_OUT)
     rec_return_value = response.get_tlv_value(TLV_TYPE_RAILGUN_BACK_RET)
@@ -280,10 +272,6 @@ class Library
     # Error messages come back with trailing CRLF, so strip it out
     # if we do get a message.
     rec_err_msg.strip! if not rec_err_msg.nil?
-
-    #puts "received stuff"
-    #puts "out_only_layout:"
-    #puts out_only_layout
 
     # The hash the function returns
     return_hash = {
@@ -316,7 +304,6 @@ class Library
     #puts "out_only_layout:"
     #puts out_only_layout
 
-
     # process out-only buffers
     #puts "processing out-only buffers:"
     out_only_layout.each_pair do |param_name, buffer_item|
@@ -333,6 +320,8 @@ class Library
         when 'PWCHAR'
           return_hash[param_name] = uniz_to_str(buffer)
         when 'PBLOB'
+          param_arg = args[buffer_item.belongs_to_param_n]
+          buffer = param_arg.read(buffer) if param_arg.respond_to?(:read)
           return_hash[param_name] = buffer
         else
           raise "unexpected type in out-only buffer of #{param_name}: #{buffer_item.datatype}"
@@ -356,6 +345,8 @@ class Library
         when 'PWCHAR'
           return_hash[param_name] = uniz_to_str(buffer)
         when 'PBLOB'
+          parma_arg = args[buffer_item.belongs_to_param_n]
+          buffer = param_arg.read(buffer) if param_arg.respond_to?(:read)
           return_hash[param_name] = buffer
         else
           raise "unexpected type in in-out-buffer of #{param_name}: #{buffer_item.datatype}"
