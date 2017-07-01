@@ -130,55 +130,9 @@ class Library
     # We transmit the immediate stack and three heap-buffers:
     # in, inout and out. The reason behind the separation is bandwidth.
     # We don't want to transmit uninitialized data in or no-longer-needed data out.
-
-    # out-only-buffers that are ONLY transmitted on the way BACK
-    out_only_layout = {} # paramName => BufferItem
-    out_only_size_bytes = 0
-    #puts " assembling out-only buffer"
-    function.params.each_with_index do |param_desc, param_idx|
-      # we care only about out-only buffers
-      next unless param_desc[2] == 'out'
-      param_arg = args[param_idx]
-      # Special case:
-      #   The user can choose to supply a Null pointer instead of a buffer
-      #   in this case we don't need space in any heap buffer
-      next if param_desc[0][0,1] == 'P' and param_arg.nil? # type is a pointer
-      
-      param_arg = param_arg.num_bytes if param_desc[0] == 'PBLOB' and param_arg.respond_to?(:num_bytes)
-      
-      unless param_arg.kind_of? Integer
-        raise "error in param #{param_desc[1]}: Out-only buffers must be described by a number indicating their size in bytes"
-      end
-      buffer_size = param_arg
-      if param_desc[0] == 'PDWORD'
-        # bump up the size for an x64 pointer
-        if native == 'Q<' && buffer_size == 4
-          args[param_idx] = 8
-          buffer_size = 8
-        end
-
-        if native == 'Q<'
-          if buffer_size != 8
-            raise "Please pass 8 for 'out' PDWORDS, since they require a buffer of size 8"
-          end
-        elsif native == 'V'
-          if buffer_size != 4
-            raise "Please pass 4 for 'out' PDWORDS, since they require a buffer of size 4"
-          end
-        end
-      end
-
-      out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size_bytes, buffer_size, param_desc[0])
-      out_only_size_bytes += buffer_size
-    end
-
-    tmp = assemble_buffer('in', function, args)
-    in_only_layout = tmp[0]
-    in_only_buffer = tmp[1]
-
-    tmp = assemble_buffer('inout', function, args)
-    inout_layout = tmp[0]
-    inout_buffer = tmp[1]
+    in_only_layout, in_only_buffer = assemble_buffer_in(function, args, native)
+    inout_layout, inout_buffer = assemble_buffer_inout(function, args, native)
+    out_only_layout, out_only_size_bytes = assemble_buffer_out(function, args, native)
 
     # now we build the stack
     # every stack dword will be described by two dwords:
@@ -280,56 +234,8 @@ class Library
     }
     
     return_hash['return'] = get_return_value(function.return_type, rec_return_value, native)
-
-    # process out-only buffers
-    #puts "processing out-only buffers:"
-    out_only_layout.each_pair do |param_name, buffer_item|
-      #puts "   #{param_name}"
-      buffer = rec_out_only_buffers[buffer_item.addr, buffer_item.length_in_bytes]
-      case buffer_item.datatype
-        when 'PDWORD'
-          # PDWORD is treated as a POINTER
-          return_hash[param_name] = buffer.unpack(native).first
-          # If PDWORD is treated correctly as a DWORD
-          return_hash[param_name] = buffer.unpack('V').first if return_hash[param_name].nil?
-        when 'PCHAR'
-          return_hash[param_name] = asciiz_to_str(buffer)
-        when 'PWCHAR'
-          return_hash[param_name] = uniz_to_str(buffer)
-        when 'PBLOB'
-          param_arg = args[buffer_item.belongs_to_param_n]
-          buffer = param_arg.read(buffer) if param_arg.respond_to?(:read)
-          return_hash[param_name] = buffer
-        else
-          raise "unexpected type in out-only buffer of #{param_name}: #{buffer_item.datatype}"
-      end
-    end
-    #puts return_hash
-
-    # process in-out buffers
-    #puts "processing in-out buffers:"
-    inout_layout.each_pair do |param_name, buffer_item|
-      #puts "   #{param_name}"
-      buffer = rec_inout_buffers[buffer_item.addr, buffer_item.length_in_bytes]
-      case buffer_item.datatype
-        when 'PDWORD'
-          # PDWORD is treated as a POINTER
-          return_hash[param_name] = buffer.unpack(native).first
-          # If PDWORD is treated correctly as a DWORD
-          return_hash[param_name] = buffer.unpack('V').first if return_hash[param_name].nil?
-        when 'PCHAR'
-          return_hash[param_name] = asciiz_to_str(buffer)
-        when 'PWCHAR'
-          return_hash[param_name] = uniz_to_str(buffer)
-        when 'PBLOB'
-          parma_arg = args[buffer_item.belongs_to_param_n]
-          buffer = param_arg.read(buffer) if param_arg.respond_to?(:read)
-          return_hash[param_name] = buffer
-        else
-          raise "unexpected type in in-out-buffer of #{param_name}: #{buffer_item.datatype}"
-      end
-    end
-    #puts return_hash
+    return_hash.merge!(disassemble_buffer(inout_layout, rec_inout_buffers, args, native))
+    return_hash.merge!(disassemble_buffer(out_only_layout, rec_out_only_buffers, args, native))
 
     #puts "finished"
 #		puts("

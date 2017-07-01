@@ -119,7 +119,7 @@ module LibraryHelper
   end
 
   # assembles the buffers "in" and "inout"
-  def assemble_buffer(direction, function, args)
+  def assemble_buffer(direction, function, args, native)
     layout = {} # paramName => BufferItem
     blob = ""
     #puts " building buffer: #{direction}"
@@ -159,11 +159,89 @@ module LibraryHelper
         while (blob.length % 8 != 0)
           blob += "\x00"
         end
-        #puts "   heap blob size now #{blob.length}"
       end
     end
-    #puts "  built buffer: #{direction}"
-    return [layout, blob]
+    
+    [layout, blob]
+  end
+  
+  def assemble_buffer_in(function, args, native)
+    assemble_buffer('in', function, args, native)
+  end
+  
+  def assemble_buffer_inout(function, args, native)
+    assemble_buffer('inout', function, args, native)
+  end
+  
+  def assemble_buffer_out(function, args, native)
+    # out-only-buffers that are ONLY transmitted on the way BACK
+    out_only_layout = {} # paramName => BufferItem
+    out_only_size_bytes = 0
+
+    function.params.each_with_index do |param_desc, param_idx|
+      # we care only about out-only buffers
+      next unless param_desc[2] == 'out'
+      param_arg = args[param_idx]
+      # Special case:
+      #   The user can choose to supply a Null pointer instead of a buffer
+      #   in this case we don't need space in any heap buffer
+      next if param_desc[0][0,1] == 'P' and param_arg.nil? # type is a pointer
+      
+      param_arg = param_arg.num_bytes if param_desc[0] == 'PBLOB' and param_arg.respond_to?(:num_bytes)
+      
+      unless param_arg.kind_of? Integer
+        raise "error in param #{param_desc[1]}: Out-only buffers must be described by a number indicating their size in bytes"
+      end
+      buffer_size = param_arg
+      if param_desc[0] == 'PDWORD'
+        # bump up the size for an x64 pointer
+        if native == 'Q<' && buffer_size == 4
+          args[param_idx] = 8
+          buffer_size = 8
+        end
+
+        if native == 'Q<'
+          if buffer_size != 8
+            raise "Please pass 8 for 'out' PDWORDS, since they require a buffer of size 8"
+          end
+        elsif native == 'V'
+          if buffer_size != 4
+            raise "Please pass 4 for 'out' PDWORDS, since they require a buffer of size 4"
+          end
+        end
+      end
+
+      out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size_bytes, buffer_size, param_desc[0])
+      out_only_size_bytes += buffer_size
+    end
+    
+    [out_only_layout, out_only_size_bytes]
+  end
+
+  def disassemble_buffer(layout, buffers, args, native)
+    return_hash = {}
+    layout.each_pair do |param_name, buffer_item|
+      buffer = buffers[buffer_item.addr, buffer_item.length_in_bytes]
+      case buffer_item.datatype
+        when 'PDWORD'
+          # PDWORD is treated as a POINTER
+          return_hash[param_name] = buffer.unpack(native).first
+          # If PDWORD is treated correctly as a DWORD
+          return_hash[param_name] = buffer.unpack('V').first if return_hash[param_name].nil?
+        when 'PCHAR'
+          return_hash[param_name] = asciiz_to_str(buffer)
+        when 'PWCHAR'
+          return_hash[param_name] = uniz_to_str(buffer)
+        when 'PBLOB'
+          param_arg = args[buffer_item.belongs_to_param_n]
+          buffer = param_arg.read(buffer) if param_arg.respond_to?(:read)
+          return_hash[param_name] = buffer
+        else
+          raise "unexpected type in inout/out buffer of #{param_name}: #{buffer_item.datatype}"
+      end
+    end
+
+    return_hash
   end
 
 end

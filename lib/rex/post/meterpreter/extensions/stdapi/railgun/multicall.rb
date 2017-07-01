@@ -63,15 +63,11 @@ class MultiCaller
         lib_name, function, args = f
         lib_host = @parent.get_library(lib_name)
 
-        if not lib_host
-          raise "Library #{lib_name} has not been loaded"
-        end
+        raise "Library #{lib_name} has not been loaded" unless lib_host
 
         unless function.instance_of? LibraryFunction
           function = lib_host.functions[function]
-          if not function
-            raise "Library #{lib_name} function #{function} has not been defined"
-          end
+          raise "Library #{lib_name} function #{function} has not been defined" unless function
         end
 
         raise "#{function.params.length} arguments expected. #{args.length} arguments provided." unless args.length == function.params.length
@@ -79,66 +75,9 @@ class MultiCaller
         # We transmit the immediate stack and three heap-buffers:
         # in, inout and out. The reason behind the separation is bandwidth.
         # We don't want to transmit uninitialized data in or no-longer-needed data out.
-
-        # out-only-buffers that are ONLY transmitted on the way BACK
-        out_only_layout = {} # paramName => BufferItem
-        out_only_size_bytes = 0
-        #puts " assembling out-only buffer"
-        function.params.each_with_index do |param_desc, param_idx|
-          #puts " processing #{param_desc[1]}"
-
-          # Special case:
-          # The user can choose to supply a Null pointer instead of a buffer
-          # in this case we don't need space in any heap buffer
-          if param_desc[0][0,1] == 'P' # type is a pointer
-            if args[param_idx] == nil
-              next
-            end
-          end
-
-          # we care only about out-only buffers
-          if param_desc[2] == 'out'
-            if !args[param_idx].class.kind_of? Integer
-              raise "error in param #{param_desc[1]}: Out-only buffers must be described by a number indicating their size in bytes "
-            end
-            buffer_size = args[param_idx]
-            # bump up the size for an x64 pointer
-            if @native == 'Q<' && buffer_size == 4
-              args[param_idx] = 8
-              buffer_size = args[param_idx]
-            end
-
-            if @native == 'Q<'
-              if buffer_size != 8
-                raise "Please pass 8 for 'out' PDWORDS, since they require a buffer of size 8"
-              end
-            elsif( @native == 'V' )
-              if buffer_size != 4
-                raise "Please pass 4 for 'out' PDWORDS, since they require a buffer of size 4"
-              end
-            end
-
-            out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size_bytes, buffer_size, param_desc[0])
-            out_only_size_bytes += buffer_size
-          end
-        end
-
-        tmp = assemble_buffer('in', function, args)
-        in_only_layout = tmp[0]
-        in_only_buffer = tmp[1]
-
-        tmp = assemble_buffer('inout', function, args)
-        inout_layout = tmp[0]
-        inout_buffer = tmp[1]
-
-
-        # now we build the stack
-        # every stack dword will be described by two dwords:
-        # first dword describes second dword:
-        #	0 - literal,
-        #	1 = relative to in-only buffer
-        #	2 = relative to out-only buffer
-        #	3 = relative to inout buffer
+        in_only_layout, in_only_buffer = assemble_buffer_in(function, args, @native)
+        inout_layout, inout_buffer = assemble_buffer_inout(function, args, @native)
+        out_only_layout, out_only_size_bytes = assemble_buffer_out(function, args, @native)
 
         # (literal numbers and pointers to buffers we have created)
         literal_pairs_blob = ""
@@ -245,47 +184,8 @@ class MultiCaller
         }
 
         return_hash['return'] = get_return_value(function.return_type, rec_return_value, @native)
-
-        # process out-only buffers
-        #puts "processing out-only buffers:"
-        out_only_layout.each_pair do |param_name, buffer_item|
-          #puts "   #{param_name}"
-          buffer = rec_out_only_buffers[buffer_item.addr, buffer_item.length_in_bytes]
-          case buffer_item.datatype
-            when 'PDWORD'
-              return_hash[param_name] = buffer.unpack('V')[0]
-            when 'PCHAR'
-              return_hash[param_name] = asciiz_to_str(buffer)
-            when 'PWCHAR'
-              return_hash[param_name] = uniz_to_str(buffer)
-            when 'PBLOB'
-              return_hash[param_name] = buffer
-            else
-              raise "unexpected type in out-only buffer of #{param_name}: #{buffer_item.datatype}"
-          end
-        end
-        #puts return_hash
-
-        # process in-out buffers
-        #puts "processing in-out buffers:"
-        inout_layout.each_pair do |param_name, buffer_item|
-          #puts '   #{param_name}'
-          buffer = rec_inout_buffers[buffer_item.addr, buffer_item.length_in_bytes]
-          case buffer_item.datatype
-            when 'PDWORD'
-              return_hash[param_name] = buffer.unpack('V')[0]
-            when 'PCHAR'
-              return_hash[param_name] = asciiz_to_str(buffer)
-            when 'PWCHAR'
-              return_hash[param_name] = uniz_to_str(buffer)
-            when 'PBLOB'
-              return_hash[param_name] = buffer
-            else
-              raise "unexpected type in in-out-buffer of #{param_name}: #{buffer_item.datatype}"
-          end
-        end
-        #puts return_hash
-        #puts "finished"
+        return_hash.merge!(disassemble_buffer(inout_layout, rec_inout_buffers, args, @native))
+        return_hash.merge!(disassemble_buffer(out_only_layout, rec_out_only_buffers, args, @native))
 
         function_results << return_hash
       end
