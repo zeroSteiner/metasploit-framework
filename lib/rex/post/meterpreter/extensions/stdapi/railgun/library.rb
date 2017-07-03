@@ -127,90 +127,14 @@ class Library
       native = 'V'
     end
 
-    # We transmit the immediate stack and three heap-buffers:
-    # in, inout and out. The reason behind the separation is bandwidth.
-    # We don't want to transmit uninitialized data in or no-longer-needed data out.
-    in_only_layout, in_only_buffer = assemble_buffer_in(function, args, native)
-    inout_layout, inout_buffer = assemble_buffer_inout(function, args, native)
-    out_only_layout, out_only_size_bytes = assemble_buffer_out(function, args, native)
-
-    # now we build the stack
-    # every stack dword will be described by two dwords:
-    # first dword describes second dword:
-    #   0 - literal,
-    #   1 = relative to in-only buffer
-    #   2 = relative to out-only buffer
-    #   3 = relative to inout buffer
-
-    # (literal numbers and pointers to buffers we have created)
-    literal_pairs_blob = ""
-    #puts " assembling literal stack"
-    function.params.each_with_index do |param_desc, param_idx|
-      #puts "  processing (#{param_desc[0]}, #{param_desc[1]}, #{param_desc[2]})"
-      buffer = nil
-      # is it a pointer to a buffer on our stack
-      if ['PDWORD', 'PWCHAR', 'PCHAR', 'PBLOB'].include? param_desc[0]
-        #puts '   pointer'
-        if args[param_idx] == nil # null pointer?
-          buffer  = [0].pack(native) # type: DWORD  (so the library does not rebase it)
-          buffer += [0].pack(native) # value: 0
-        elsif param_desc[2] == 'in'
-          buffer  = [1].pack(native)
-          buffer += [in_only_layout[param_desc[1]].addr].pack(native)
-        elsif param_desc[2] == 'out'
-          buffer  = [2].pack(native)
-          buffer += [out_only_layout[param_desc[1]].addr].pack(native)
-        elsif param_desc[2] == 'inout'
-          buffer  = [3].pack(native)
-          buffer += [inout_layout[param_desc[1]].addr].pack(native)
-        else
-          raise 'unexpected direction'
-        end
-      else
-        #puts "   not a pointer"
-        # it's not a pointer (LPVOID is a pointer but is not backed by railgun memory, ala PBLOB)
-        buffer = [0].pack(native)
-        case param_desc[0]
-          when 'LPVOID', 'HANDLE', 'SIZE_T'
-            num     = param_to_number(args[param_idx])
-            buffer += [num].pack(native)
-          when 'DWORD'
-            num     = param_to_number(args[param_idx])
-            buffer += [num % 4294967296].pack(native)
-          when 'WORD'
-            num     = param_to_number(args[param_idx])
-            buffer += [num % 65536].pack(native)
-          when 'BYTE'
-            num     = param_to_number(args[param_idx])
-            buffer += [num % 256].pack(native)
-          when 'BOOL'
-            case args[param_idx]
-              when true
-                buffer += [1].pack(native)
-              when false
-                buffer += [0].pack(native)
-              else
-                raise "param #{param_desc[1]}: true or false expected"
-            end
-          else
-            raise "unexpected type for param #{param_desc[1]}"
-        end
-      end
-
-      #puts "   adding pair to blob"
-      literal_pairs_blob += buffer
-      #puts "   buffer size %X" % buffer.length
-      #puts "   blob size so far: %X" % literal_pairs_blob.length
-    end
+    call_data = assemble_call_data(function, args, native)
 
     #puts "\n\nsending Stuff to meterpreter"
     request = Packet.create_request('stdapi_railgun_api')
-    request.add_tlv(TLV_TYPE_RAILGUN_SIZE_OUT, out_only_size_bytes)
-
-    request.add_tlv(TLV_TYPE_RAILGUN_STACKBLOB, literal_pairs_blob)
-    request.add_tlv(TLV_TYPE_RAILGUN_BUFFERBLOB_IN, in_only_buffer)
-    request.add_tlv(TLV_TYPE_RAILGUN_BUFFERBLOB_INOUT, inout_buffer)
-
+    request.add_tlv(TLV_TYPE_RAILGUN_SIZE_OUT, call_data[:out_only_size])
+    request.add_tlv(TLV_TYPE_RAILGUN_STACKBLOB, call_data[:stack_blob])
+    request.add_tlv(TLV_TYPE_RAILGUN_BUFFERBLOB_IN, call_data[:in_only_buffer])
+    request.add_tlv(TLV_TYPE_RAILGUN_BUFFERBLOB_INOUT, call_data[:inout_buffer])
     request.add_tlv(TLV_TYPE_RAILGUN_LIBNAME, @library_path)
     request.add_tlv(TLV_TYPE_RAILGUN_FUNCNAME, function.remote_name)
     request.add_tlv(TLV_TYPE_RAILGUN_CALLCONV, function.calling_conv)
@@ -225,7 +149,7 @@ class Library
 
     # Error messages come back with trailing CRLF, so strip it out
     # if we do get a message.
-    rec_err_msg.strip! if not rec_err_msg.nil?
+    rec_err_msg.strip! unless rec_err_msg.nil?
 
     # The hash the function returns
     return_hash = {
@@ -234,8 +158,8 @@ class Library
     }
     
     return_hash['return'] = get_return_value(function.return_type, rec_return_value, native)
-    return_hash.merge!(disassemble_buffer(inout_layout, rec_inout_buffers, args, native))
-    return_hash.merge!(disassemble_buffer(out_only_layout, rec_out_only_buffers, args, native))
+    return_hash.merge!(disassemble_buffer(call_data[:inout_layout], rec_inout_buffers, args, native))
+    return_hash.merge!(disassemble_buffer(call_data[:out_only_layout], rec_out_only_buffers, args, native))
 
     #puts "finished"
 #		puts("

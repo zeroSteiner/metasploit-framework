@@ -38,23 +38,23 @@ module LibraryHelper
 
   # converts ruby string to zero-terminated ASCII string
   def str_to_ascii_z(str)
-    return str + "\x00"
+    return str << "\x00"
   end
 
   # converts 0-terminated ASCII string to ruby string
   def asciiz_to_str(asciiz)
     zero_byte_idx = asciiz.index("\x00")
-    if zero_byte_idx != nil
-      return asciiz[0, zero_byte_idx]
-    else
+    if zero_byte_idx.nil?
       return asciiz
+    else
+      return asciiz[0, zero_byte_idx]
     end
   end
 
   # converts ruby string to zero-terminated WCHAR string
   def str_to_uni_z(str)
-    enc = str.unpack("C*").pack("v*")
-    enc += "\x00\x00"
+    enc = str.unpack('C*').pack('v*')
+    enc << "\x00\x00"
     return enc
   end
 
@@ -176,7 +176,7 @@ module LibraryHelper
   def assemble_buffer_out(function, args, native)
     # out-only-buffers that are ONLY transmitted on the way BACK
     out_only_layout = {} # paramName => BufferItem
-    out_only_size_bytes = 0
+    out_only_size = 0
 
     function.params.each_with_index do |param_desc, param_idx|
       # we care only about out-only buffers
@@ -211,11 +211,82 @@ module LibraryHelper
         end
       end
 
-      out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size_bytes, buffer_size, param_desc[0])
-      out_only_size_bytes += buffer_size
+      out_only_layout[param_desc[1]] = BufferItem.new(param_idx, out_only_size, buffer_size, param_desc[0])
+      out_only_size += buffer_size
     end
     
-    [out_only_layout, out_only_size_bytes]
+    [out_only_layout, out_only_size]
+  end
+
+  def assemble_call_data(function, args, native)
+    # We transmit the immediate stack and three heap-buffers:
+    # in, inout and out. The reason behind the separation is bandwidth.
+    # We don't want to transmit uninitialized data in or no-longer-needed data out.
+    in_only_layout, in_only_buffer = assemble_buffer_in(function, args, native)
+    inout_layout, inout_buffer = assemble_buffer_inout(function, args, native)
+    out_only_layout, out_only_size = assemble_buffer_out(function, args, native)
+
+    literal_pairs_blob = ''
+    function.params.each_with_index do |param_desc, param_idx|
+      buffer = nil
+      # is it a pointer to a buffer on our stack
+      if ['PDWORD', 'PWCHAR', 'PCHAR', 'PBLOB'].include? param_desc[0]
+        if args[param_idx].nil?       # null pointer?
+          buffer  = [0].pack(native)  # type: DWORD  (so the library does not rebase it)
+          buffer += [0].pack(native)  # value: 0
+        elsif param_desc[2] == 'in'
+          buffer  = [1].pack(native)
+          buffer += [in_only_layout[param_desc[1]].addr].pack(native)
+        elsif param_desc[2] == 'out'
+          buffer  = [2].pack(native)
+          buffer += [out_only_layout[param_desc[1]].addr].pack(native)
+        elsif param_desc[2] == 'inout'
+          buffer  = [3].pack(native)
+          buffer += [inout_layout[param_desc[1]].addr].pack(native)
+        else
+          raise "unexpected direction: #{param_desc[2]}"
+        end
+      else
+        # it's not a pointer (LPVOID is a pointer but is not backed by railgun memory, ala PBLOB)
+        buffer = [0].pack(native)
+        case param_desc[0]
+          when 'LPVOID', 'HANDLE', 'SIZE_T'
+            num     = param_to_number(args[param_idx])
+            buffer += [num].pack(native)
+          when 'DWORD'
+            num     = param_to_number(args[param_idx])
+            buffer += [num % 4294967296].pack(native)
+          when 'WORD'
+            num     = param_to_number(args[param_idx])
+            buffer += [num % 65536].pack(native)
+          when 'BYTE'
+            num     = param_to_number(args[param_idx])
+            buffer += [num % 256].pack(native)
+          when 'BOOL'
+            case args[param_idx]
+              when true
+                buffer += [1].pack(native)
+              when false
+                buffer += [0].pack(native)
+              else
+                raise "param #{param_desc[1]}: true or false expected"
+            end
+          else
+            raise "unexpected type for param #{param_desc[1]}"
+        end
+      end
+
+      literal_pairs_blob += buffer
+    end
+    {
+      :stack_blob      => literal_pairs_blob,
+      :in_only_buffer  => in_only_buffer,
+      :in_only_layout  => in_only_layout,
+      :inout_buffer    => inout_buffer,
+      :inout_layout    => inout_layout,
+      :out_only_size   => out_only_size,
+      :out_only_layout => out_only_layout
+    }
   end
 
   def disassemble_buffer(layout, buffers, args, native)
