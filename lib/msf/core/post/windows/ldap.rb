@@ -84,14 +84,14 @@ module LDAP
     0x4c => 'LDAP_VIRTUAL_LIST_VIEW_ERROR'
   }
 
-    def initialize(info = {})
-      super
-      register_options(
-      [
-        OptString.new('DOMAIN', [false, 'The domain to query or distinguished name (e.g. DC=test,DC=com)', nil]),
-        OptInt.new('MAX_SEARCH', [true, 'Maximum values to retrieve, 0 for all.', 500]),
-      ], self.class)
-    end
+  def initialize(info = {})
+    super
+    register_options(
+    [
+      OptString.new('DOMAIN', [false, 'The domain to query or distinguished name (e.g. DC=test,DC=com)', nil]),
+      OptInt.new('MAX_SEARCH', [true, 'Maximum values to retrieve, 0 for all.', 500]),
+    ], self.class)
+  end
 
   # Converts a Distinguished Name to DNS name
   #

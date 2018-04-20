@@ -27,13 +27,13 @@ class MetasploitModule < Msf::Post
     register_options(
       [
         OptPath.new('PATH',[true, 'Reflective DLL to inject into memory of a process.']),
-        OptInt.new('PID',[true, 'Process Identifier to inject of process to inject payload.']),
+        OptInt.new('PID',[true, 'PID of the process in which to inject the payload.']),
       ])
   end
 
   # Run Method for when run command is issued
   def run
-    # syinfo is only on meterpreter sessions
+    # sysinfo is only on meterpreter sessions
     print_status("Running module against #{sysinfo['Computer']}") if not sysinfo.nil?
 
     pid = datastore['PID'].to_i
