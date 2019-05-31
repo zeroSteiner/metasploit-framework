@@ -134,7 +134,7 @@ class Console::CommandDispatcher::Core
     end
 
     # todo: this should only be present on supported implementations
-    c['logging'] = 'Configure meterpreter session logging'
+    c['log'] = 'Configure meterpreter session logging'
     c
   end
 
@@ -534,12 +534,12 @@ class Console::CommandDispatcher::Core
   #
   # Open a logging channel
   #
-  def cmd_logging(*args)
+  def cmd_log(*args)
     if args.empty? || args.include?('-h')
       cmd_logging_help
       return true
     end
-    command = args[0]
+    command = args.shift
     case command
     when 'start'
       if client.logging_channel.nil?
@@ -565,7 +565,7 @@ class Console::CommandDispatcher::Core
     end
   end
 
-  def cmd_logging_help
+  def cmd_log_help
     print_line('Usage: logging <command>')
     print_line
     print_line('commands:')
