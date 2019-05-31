@@ -133,8 +133,10 @@ class Console::CommandDispatcher::Core
       c['info'] = 'Displays information about a Post module'
     end
 
-    # todo: this should only be present on supported implementations
-    c['log'] = 'Configure meterpreter session logging'
+    if client.arch == 'python'
+      # Initial logging channel support is only in python
+      c['log'] = 'Configure meterpreter session logging'
+    end
     c
   end
 
@@ -536,7 +538,7 @@ class Console::CommandDispatcher::Core
   #
   def cmd_log(*args)
     if args.empty? || args.include?('-h')
-      cmd_logging_help
+      cmd_log_help
       return true
     end
     command = args.shift
@@ -546,19 +548,19 @@ class Console::CommandDispatcher::Core
         client.extend(LogChannelTracker) unless client.kind_of?(LogChannelTracker)
         channel = Rex::Post::Meterpreter::Channels::Streams::Logging.open(client)
         client.logging_channel = channel
-        print_status("Opened channel id: #{channel.cid}")
+        print_status("Opened logging channel id: #{channel.cid}")
       else
         print_status("Logging channel id: #{channel.cid} is already open")
       end
     when 'stop'
       if client.logging_channel.nil?
-        print_status('No log channel is currently open')
+        print_status('No logging channel is currently open')
       else
         print_status('Closed the logging channel')
       end
     when 'read'
       if client.logging_channel.nil?
-        print_status('No log channel is currently open')
+        print_status('No logging channel is currently open')
       else
         print_line(client.logging_channel.read)
       end
