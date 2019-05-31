@@ -1,7 +1,10 @@
 # -*- coding: binary -*-
 require 'set'
 require 'rex/post/meterpreter'
+require 'rex/post/meterpreter/channel'
+require 'rex/post/meterpreter/channels/pools/logging'
 require 'rex/parser/arguments'
+require 'rex/service_manager'
 
 module Rex
 module Post
@@ -17,6 +20,20 @@ module Ui
 class Console::CommandDispatcher::Core
 
   include Console::CommandDispatcher
+
+
+  module LogChannelTracker
+    def cleanup
+      super
+
+      if logging_channel
+        logging_channel.close
+      end
+    end
+
+    attr_accessor :logging_channel
+  end
+
 
   #
   # Initializes an instance of the core command set using the supplied shell
@@ -116,6 +133,8 @@ class Console::CommandDispatcher::Core
       c['info'] = 'Displays information about a Post module'
     end
 
+    # todo: this should only be present on supported implementations
+    c['logging'] = 'Configure meterpreter session logging'
     c
   end
 
@@ -513,6 +532,49 @@ class Console::CommandDispatcher::Core
   end
 
   #
+  # Open a logging channel
+  #
+  def cmd_logging(*args)
+    if args.empty? || args.include?('-h')
+      cmd_logging_help
+      return true
+    end
+    command = args[0]
+    case command
+    when 'start'
+      if client.logging_channel.nil?
+        client.extend(LogChannelTracker) unless client.kind_of?(LogChannelTracker)
+        channel = Rex::Post::Meterpreter::Channels::Streams::Logging.open(client)
+        client.logging_channel = channel
+        print_status("Opened channel id: #{channel.cid}")
+      else
+        print_status("Logging channel id: #{channel.cid} is already open")
+      end
+    when 'stop'
+      if client.logging_channel.nil?
+        print_status('No log channel is currently open')
+      else
+        print_status('Closed the logging channel')
+      end
+    when 'read'
+      if client.logging_channel.nil?
+        print_status('No log channel is currently open')
+      else
+        print_line(client.logging_channel.read)
+      end
+    end
+  end
+
+  def cmd_logging_help
+    print_line('Usage: logging <command>')
+    print_line
+    print_line('commands:')
+    print_line('  read:  read the logging stream from the meterpreter session')
+    print_line('  start: start logging on the meterpreter session')
+    print_line('  stop:  stop logging on the meterpreter session')
+  end
+
+  #
   # Interacts with a channel.
   #
   def cmd_interact(*args)
@@ -711,8 +773,9 @@ class Console::CommandDispatcher::Core
   @@ssl_verify_opts = Rex::Parser::Arguments.new(
     '-e' => [ false, 'Enable SSL certificate verification' ],
     '-d' => [ false, 'Disable SSL certificate verification' ],
-    '-q' => [ false, 'Query the statis of SSL certificate verification' ],
+    '-q' => [ false, 'Query the status of SSL certificate verification' ],
     '-h' => [ false, 'Help menu' ])
+
 
   #
   # Help for ssl verification
