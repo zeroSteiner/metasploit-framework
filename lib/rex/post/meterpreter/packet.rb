@@ -293,6 +293,7 @@ METHOD_LIST = {
   'stdapi_webcam_list' =>  2114,
   'stdapi_webcam_start' =>  2115,
   'stdapi_webcam_stop' =>  2116,
+  'stdapi_fs_delete' => 2117,
 
   'priv_elevate_getsystem' =>  3000,
   'priv_fs_blank_directory_mace' =>  3001,
