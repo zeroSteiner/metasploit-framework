@@ -152,10 +152,10 @@ module ReverseUdp
           inbound, peerhost, peerport = self.listener_sock.recvfrom
           next if peerhost.nil?
           cli_opts = {
-            'PeerPort' => peerport,
-            'PeerHost' => peerhost,
+            'PeerPort'  => peerport,
+            'PeerHost'  => peerhost,
             'LocalPort' => self.listener_sock.localport,
-            'Comm' => self.listener_sock.respond_to?(:comm) ? self.listener_sock.comm : nil
+            'Comm'      => self.listener_sock.respond_to?(:comm) ? self.listener_sock.comm : nil
           }
 
           # unless ['::', '0.0.0.0'].any? {|alladdr| self.listener_sock.localhost == alladdr }
@@ -170,7 +170,7 @@ module ReverseUdp
           end
 
           self.pending_connections += 1
-          lqueue.push([client,inbound])
+          lqueue.push([client, inbound])
         rescue ::Exception
           wlog("ReverseUdpHandlerListener-#{local_port}: Exception raised during listener accept: #{$!}\n\n#{$@.join("\n")}")
           break
