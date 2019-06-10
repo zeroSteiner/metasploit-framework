@@ -2,6 +2,147 @@
 require 'rex/socket'
 require 'thread'
 
+# -*- coding: binary -*-
+require 'rex/sync/thread_safe'
+require 'bindata'
+
+module DataGramStream
+
+  class DataGramHeader < BinData::Record
+    endian :big
+
+    SIZE = 4
+    VERSION = 1
+
+    default_parameter version: 1
+
+    bit4   :version, :initial_value => :version
+    bit1   :reserved
+    bit1   :psh_flag
+    bit1   :ack_flag
+    bit1   :syn_flag
+    uint24 :sequence
+
+    string :data
+  end
+
+  def init_dgstream_server(hello, opts = {})
+    dgh = read_datagram(nil, opts)
+    return false if dgh.nil?
+    return false unless dgh.psh_flag == 0
+    return false unless dgh.ack_flag == 0
+    return false unless dgh.syn_flag == 1
+    return false unless dgh.sequence != 0
+    @sequence = dgh.sequence
+    return send_ack(opts)
+  end
+
+  def write(buf, opts = {})
+    total_sent = 0
+    max_block_size = 65507
+
+    frames = []
+    while buf.length > max_block_size
+      frames << buf[0..max_block_size - 1]
+      buf = buf[max_block_size..-1]
+    end
+    frames << buf if buf.length > 0
+
+    frames.each do |frame|
+      success = false
+      5.times do |iteration|
+        success = write_frame(frame, opts)
+        break if success
+        # use an exponential backup to avoid congestion
+        # todo: ensure these values are resonable
+        sleep((100.0 ** (iteration + 1.0)) / 1000.0)
+      end
+      raise IOError unless success
+    end
+
+    buf.length
+  end
+
+  alias_method :put, :write
+
+  def read(length = nil, opts = {})
+    buffer = ''
+    while buffer.length < length
+      buffer << read_frame
+    end
+
+    buffer
+  end
+
+  protected
+
+  def read_frame(opts = {})
+    dgh = read_datagram(@sequence + 1, opts)
+    return nil if dgh.nil?
+    send_ack(opts)
+    @sequence += 1
+    return dgh.data
+  end
+
+  def write_frame(frame, opts = {})
+    dgh = DataGramHeader.new(psh_flag: 1, sequence: @sequence + 1, data: frame)
+    write_datagram(dgh, opts)
+    return unless recv_ack(@sequence + 1)
+    @sequence += 1
+  end
+
+  def read_datagram(sequence, opts = {})
+    5.times do |iteration|
+      s = Rex::ThreadSafe.select([fd], nil, nil, 0.2)
+      next if (s.nil? || s[0].nil?)
+
+      # todo: this should be a configurable block size
+      received = fd.read_nonblock(65507)
+
+      header = received[0..DataGramHeader::SIZE - 1]
+      next unless header.length == DataGramHeader::SIZE
+      dgh = DataGramHeader.read(header)
+      next unless dgh.version == DataGramHeader::VERSION
+      return dgh if sequence.nil? || dgh.sequence == sequence
+    end
+    return nil
+  end
+
+  def write_datagram(dg, opts = {})
+    # todo: this needs to address the fact that the packet waiter is getting the
+    # ack frame, a mutex might do the trick here
+    begin
+      5.times do |iteration|
+        s = Rex::ThreadSafe.select(nil, [fd], nil, 0.2)
+        break unless (s.nil? || s[0].nil?)
+      end
+      raw = dg.to_binary_s
+      sent = fd.write_nonblock(raw)
+      # here we verify that the entire datagram was sent and acknowledged
+      # we don't account for partial writes due to the nature of the protocol
+      return false unless sent == raw.length
+    rescue ::Errno::EAGAIN, ::Errno::EWOULDBLOCK
+      Rex::ThreadSafe.select(nil, [fd], nil, 0.5)
+      retry
+    rescue ::IOError, ::Errno::EPIPE
+      return nil
+    end
+
+    return true
+  end
+
+  def recv_ack(sequence, opts = {})
+    dgh = read_datagram(opts)
+    return false if dgh.nil?
+    return dgh.ack_flag == 1
+  end
+
+  def send_ack(opts = {})
+    write_datagram(DataGramHeader.new(ack_flag: 1, sequence: @sequence), opts)
+  end
+
+end
+
 module Msf
 module Handler
 
@@ -211,6 +352,12 @@ module ReverseUdp
       end
     }
 
+  end
+
+  def create_session(client, opts={})
+    client.extend(DataGramStream)
+    client.init_dgstream_server(opts)
+    super
   end
 
   #
