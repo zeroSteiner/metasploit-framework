@@ -9,6 +9,12 @@ require 'bindata'
 module DataGramStream
 
   class DataGramHeader < BinData::Record
+    # format specification:
+    #  0                   1                   2                   3
+    #  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    # |Version|R|P|A|S|                    Sequence                   |
+    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     endian :big
 
     SIZE = 4
@@ -23,17 +29,21 @@ module DataGramStream
     bit1   :syn_flag
     uint24 :sequence
 
-    string :data
+    rest   :data
   end
 
   def init_dgstream_server(hello, opts = {})
-    dgh = read_datagram(nil, opts)
+    @sequence = nil
+    dgh = read_datagram(opts)
     return false if dgh.nil?
     return false unless dgh.psh_flag == 0
     return false unless dgh.ack_flag == 0
     return false unless dgh.syn_flag == 1
     return false unless dgh.sequence != 0
     @sequence = dgh.sequence
+    @mutex = Mutex.new
+    @condition = ConditionVariable.new
+    @acked = false
     return send_ack(opts)
   end
 
@@ -68,7 +78,8 @@ module DataGramStream
   def read(length = nil, opts = {})
     buffer = ''
     while buffer.length < length
-      buffer << read_frame
+      frame = read_frame
+      buffer << frame unless frame.nil?
     end
 
     buffer
@@ -77,21 +88,24 @@ module DataGramStream
   protected
 
   def read_frame(opts = {})
-    dgh = read_datagram(@sequence + 1, opts)
+    dgh = read_datagram(opts)
     return nil if dgh.nil?
     send_ack(opts)
-    @sequence += 1
     return dgh.data
   end
 
   def write_frame(frame, opts = {})
-    dgh = DataGramHeader.new(psh_flag: 1, sequence: @sequence + 1, data: frame)
-    write_datagram(dgh, opts)
-    return unless recv_ack(@sequence + 1)
-    @sequence += 1
+    @mutex.synchronize do
+      @acked = false
+      dgh = DataGramHeader.new(psh_flag: 1, sequence: @sequence, data: frame)
+      write_datagram(dgh, opts)
+      @condition.wait(@mutex, 5)  # this timeout (5) should be configurable or come from some place intelligent
+      return false unless @acked
+      return true
+    end
   end
 
-  def read_datagram(sequence, opts = {})
+  def read_datagram(opts = {})
     5.times do |iteration|
       s = Rex::ThreadSafe.select([fd], nil, nil, 0.2)
       next if (s.nil? || s[0].nil?)
@@ -99,11 +113,16 @@ module DataGramStream
       # todo: this should be a configurable block size
       received = fd.read_nonblock(65507)
 
-      header = received[0..DataGramHeader::SIZE - 1]
-      next unless header.length == DataGramHeader::SIZE
-      dgh = DataGramHeader.read(header)
+      next unless received.length >= DataGramHeader::SIZE
+      dgh = DataGramHeader.read(received)
       next unless dgh.version == DataGramHeader::VERSION
-      return dgh if sequence.nil? || dgh.sequence == sequence
+      if dgh.ack_flag == 1 and dgh.sequence == @sequence
+        @acked = true
+        @sequence += 1
+        @condition.signal
+        next
+      end
+      return dgh if @sequence.nil? || dgh.sequence == @sequence
     end
     return nil
   end
@@ -139,6 +158,7 @@ module DataGramStream
 
   def send_ack(opts = {})
     write_datagram(DataGramHeader.new(ack_flag: 1, sequence: @sequence), opts)
+    @sequence += 1
   end
 
 end
