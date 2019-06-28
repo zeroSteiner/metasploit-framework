@@ -1,8 +1,15 @@
 --
--- A wireshark dissector for the Metasploit UDP Transport v1 Protocol. This is
--- mostly useful for debugging purposes.
+-- A wireshark dissector for the Metasploit UDP Transport v1 (MUTv1) Protocol.
+-- This is mostly useful for debugging purposes.
 --
 -- Load with: wireshark -X lua_script:mut_dissector.lua
+--
+-- Format specification:
+--   0                   1                   2                   3
+--   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+--  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+--  |Version|R|P|A|S|                    Sequence                   |
+--  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 --
 
 protocol = Proto("MUT_v1", "Metasploit UDP Transport v1")
