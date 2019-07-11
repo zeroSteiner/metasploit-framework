@@ -49,7 +49,7 @@ module DataGramStream
 
   def write(buf, opts = {})
     total_sent = 0
-    max_block_size = 65507
+    max_block_size = 65507 - DataGramHeader::SIZE
 
     frames = []
     while buf.length > max_block_size
@@ -64,7 +64,7 @@ module DataGramStream
         success = write_frame(frame, opts)
         break if success
         # use an exponential backup to avoid congestion
-        # todo: ensure these values are resonable
+        # todo: ensure these values are reasonable
         sleep((100.0 ** (iteration + 1.0)) / 1000.0)
       end
       raise IOError unless success
