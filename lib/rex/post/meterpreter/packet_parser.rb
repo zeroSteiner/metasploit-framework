@@ -30,21 +30,17 @@ class PacketParser
   # Reads data from the socket and parses as much of the packet as possible.
   #
   def recv(sock)
-    if sock.type? == 'tcp'
-      raw = recv_stream(sock)
-    elsif sock.type? == 'udp'
-      raw = recv_datagram(sock)
-      return nil if raw.nil?
-    else
-      raise ArgumentError('sock is not either tcp or udp')
+    raw = nil
+    if self.packet.raw_bytes_required > 0
+      while (raw = sock.read(self.packet.raw_bytes_required))
+        self.packet.add_raw(raw)
+        break if self.packet.raw_bytes_required == 0
+      end
     end
 
     if self.packet.raw_bytes_required > 0
-      if raw == nil
-        raise EOFError
-      else
-        return nil
-      end
+      raise EOFError if raw == nil && sock.type? != 'udp'
+      return nil
     end
 
     packet = self.packet
@@ -54,26 +50,6 @@ class PacketParser
 
 protected
   attr_accessor :cipher, :packet    # :nodoc:
-
-  def recv_datagram(sock)
-    if self.packet.raw_bytes_required > 0
-      while (raw = sock.read(self.packet.raw_bytes_required))
-        self.packet.add_raw(raw)
-        break if self.packet.raw_bytes_required == 0
-      end
-    end
-    raw
-  end
-
-  def recv_stream(sock)
-    if self.packet.raw_bytes_required > 0
-      while (raw = sock.read(self.packet.raw_bytes_required))
-        self.packet.add_raw(raw)
-        break if self.packet.raw_bytes_required == 0
-      end
-    end
-    raw
-  end
 
 end
 
