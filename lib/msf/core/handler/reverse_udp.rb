@@ -151,13 +151,18 @@ module DataGramStream
   def recv_ack(opts = {})
     dgh = read_datagram(opts)
     return false if dgh.nil? || dgh.ack_flag == 0
-    @sequence += 1
+    increment_sequence
     return true
   end
 
   def send_ack(opts = {})
     write_datagram(DataGramHeader.new(ack_flag: 1, sequence: @sequence), opts)
+    increment_sequence
+  end
+
+  def increment_sequence
     @sequence += 1
+    @sequence = 1 if @sequence == 0x1000000  # wrap the value, skipping 0
   end
 
 end
