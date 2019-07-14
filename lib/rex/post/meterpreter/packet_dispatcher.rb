@@ -142,7 +142,7 @@ module PacketDispatcher
     if raw
       self.comm_mutex.synchronize do
         begin
-          bytes = self.sock.write(raw)
+          bytes = self.sock.write(raw, opts)
         rescue ::Exception => e
           err = e
         end
@@ -236,7 +236,7 @@ module PacketDispatcher
   # unimportant and is ignored.
   #
   # @return [void]
-  def keepalive
+  def keepalive(opts = {})
     if @ping_sent
       if Time.now.to_i - last_checkin.to_i > PING_TIME*2
         dlog("No response to ping, session #{self.sid} is dead", LEV_3)
@@ -246,7 +246,7 @@ module PacketDispatcher
       pkt = Packet.create_request('core_channel_eof')
       pkt.add_tlv(TLV_TYPE_CHANNEL_ID, 0)
       add_response_waiter(pkt, Proc.new { @ping_sent = false })
-      send_packet(pkt)
+      send_packet(pkt, opts)
       @ping_sent = true
     end
   end

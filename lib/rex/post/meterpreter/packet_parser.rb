@@ -30,11 +30,11 @@ class PacketParser
   # Reads data from the socket and parses as much of the packet as possible.
   #
   def recv(sock)
-    raw = nil
     if sock.type? == 'tcp'
-      recv_stream(sock)
+      raw = recv_stream(sock)
     elsif sock.type? == 'udp'
-      recv_datagram(sock)
+      raw = recv_datagram(sock)
+      return nil if raw.nil?
     else
       raise ArgumentError('sock is not either tcp or udp')
     end
@@ -62,6 +62,7 @@ protected
         break if self.packet.raw_bytes_required == 0
       end
     end
+    raw
   end
 
   def recv_stream(sock)
@@ -71,6 +72,7 @@ protected
         break if self.packet.raw_bytes_required == 0
       end
     end
+    raw
   end
 
 end

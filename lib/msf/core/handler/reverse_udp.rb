@@ -1,5 +1,6 @@
 # -*- coding: binary -*-
 require 'rex/socket'
+require 'monitor'
 require 'thread'
 
 # -*- coding: binary -*-
@@ -34,6 +35,8 @@ module DataGramStream
 
   def init_dgstream_server(hello, opts = {})
     @sequence = nil
+    @monitor = Monitor.new
+    @buffer = ''
     dgh = read_datagram(opts)
     return false if dgh.nil?
     return false unless dgh.psh_flag == 0
@@ -41,14 +44,10 @@ module DataGramStream
     return false unless dgh.syn_flag == 1
     return false unless dgh.sequence != 0
     @sequence = dgh.sequence
-    @mutex = Mutex.new
-    @condition = ConditionVariable.new
-    @acked = false
     return send_ack(opts)
   end
 
   def write(buf, opts = {})
-    total_sent = 0
     max_block_size = 65507 - DataGramHeader::SIZE
 
     frames = []
@@ -63,7 +62,7 @@ module DataGramStream
       5.times do |iteration|
         success = write_frame(frame, opts)
         break if success
-        # use an exponential backup to avoid congestion
+        # todo: use an exponential backoff to avoid congestion
         # todo: ensure these values are reasonable
         sleep((100.0 ** (iteration + 1.0)) / 1000.0)
       end
@@ -76,39 +75,43 @@ module DataGramStream
   alias_method :put, :write
 
   def read(length = nil, opts = {})
-    buffer = ''
-    while buffer.length < length
-      frame = read_frame
-      buffer << frame unless frame.nil?
+    while @buffer.length < length
+      frame = read_frame(opts)
+      return nil if frame.nil?
+
+      @buffer << frame
     end
 
-    buffer
+    chunk = @buffer[0..(length - 1)]
+    @buffer = @buffer[length..-1]
+    chunk
   end
 
   protected
 
   def read_frame(opts = {})
-    dgh = read_datagram(opts)
-    return nil if dgh.nil?
-    send_ack(opts)
-    return dgh.data
+    @monitor.synchronize do
+      dgh = read_datagram(opts)
+      return nil if dgh.nil? || dgh.ack_flag == 1
+
+      send_ack(opts)
+      return dgh.data
+    end
   end
 
   def write_frame(frame, opts = {})
-    @mutex.synchronize do
-      @acked = false
+    @monitor.synchronize do
       dgh = DataGramHeader.new(psh_flag: 1, sequence: @sequence, data: frame)
       write_datagram(dgh, opts)
-      @condition.wait(@mutex, 5)  # this timeout (5) should be configurable or come from some place intelligent
-      return false unless @acked
-      return true
+      recv_ack(opts)
     end
   end
 
   def read_datagram(opts = {})
+    # todo: remove the 5.times iteration logic here if it's unnecessary
     5.times do |iteration|
       s = Rex::ThreadSafe.select([fd], nil, nil, 0.2)
-      next if (s.nil? || s[0].nil?)
+      return if (s.nil? || s[0].nil?)
 
       # todo: this should be a configurable block size
       received = fd.read_nonblock(65507)
@@ -116,13 +119,8 @@ module DataGramStream
       next unless received.length >= DataGramHeader::SIZE
       dgh = DataGramHeader.read(received)
       next unless dgh.version == DataGramHeader::VERSION
-      if dgh.ack_flag == 1 and dgh.sequence == @sequence
-        @acked = true
-        @sequence += 1
-        @condition.signal
-        next
-      end
-      return dgh if @sequence.nil? || dgh.sequence == @sequence
+      next unless dgh.sequence == @sequence || @sequence.nil?
+      return dgh
     end
     return nil
   end
@@ -150,10 +148,11 @@ module DataGramStream
     return true
   end
 
-  def recv_ack(sequence, opts = {})
+  def recv_ack(opts = {})
     dgh = read_datagram(opts)
-    return false if dgh.nil?
-    return dgh.ack_flag == 1
+    return false if dgh.nil? || dgh.ack_flag == 0
+    @sequence += 1
+    return true
   end
 
   def send_ack(opts = {})
