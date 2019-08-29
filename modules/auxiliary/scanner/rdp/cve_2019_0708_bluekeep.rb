@@ -148,10 +148,9 @@ class MetasploitModule < Msf::Auxiliary
     end
 
     chan_flags = RDPConstants::CHAN_FLAG_FIRST | RDPConstants::CHAN_FLAG_LAST
-    channel_id = [1005].pack('S>')
-    x86_packet = rdp_build_pkt(build_virtual_channel_pdu(chan_flags, [x86_string].pack("H*")), channel_id)
+    x86_packet = rdp_build_pkt(build_virtual_channel_pdu(chan_flags, [x86_string].pack("H*")), 'MS_T120')
 
-    x64_packet = rdp_build_pkt(build_virtual_channel_pdu(chan_flags, [x64_string].pack("H*")), channel_id)
+    x64_packet = rdp_build_pkt(build_virtual_channel_pdu(chan_flags, [x64_string].pack("H*")), 'MS_T120')
 
     6.times do
       rdp_send(x86_packet)
@@ -223,15 +222,30 @@ class MetasploitModule < Msf::Auxiliary
       return Exploit::CheckCode::Safe
     end
 
-    chans = [
-      ['cliprdr', RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_ENCRYPT_RDP | RDPConstants::CHAN_COMPRESS_RDP | RDPConstants::CHAN_SHOW_PROTOCOL],
-      ['MS_T120',   RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_COMPRESS_RDP],
-      ['rdpsnd',  RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_ENCRYPT_RDP],
-      ['snddbg',  RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_ENCRYPT_RDP],
-      ['rdpdr',   RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_COMPRESS_RDP],
+    channels = [
+      {
+        :name => 'cliprdr',
+        :options => RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_ENCRYPT_RDP | RDPConstants::CHAN_COMPRESS_RDP | RDPConstants::CHAN_SHOW_PROTOCOL
+      },
+      {
+        :name => 'MS_T120',
+        :options => RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_COMPRESS_RDP,
+      },
+      {
+        :name => 'rdpsnd',
+        :options => RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_ENCRYPT_RDP,
+      },
+      {
+        :name => 'snddbg',
+        :options => RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_ENCRYPT_RDP,
+      },
+      {
+        :name => 'rdpdr',
+        :options => RDPConstants::CHAN_INITIALIZED | RDPConstants::CHAN_COMPRESS_RDP,
+      }
     ]
 
-    success = rdp_negotiate_security(chans, server_selected_proto)
+    success = rdp_negotiate_security(channels, server_selected_proto)
     return Exploit::CheckCode::Unknown unless success
 
     rdp_establish_session
