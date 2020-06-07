@@ -133,11 +133,12 @@ Gem::Specification.new do |spec|
   #
   spec.add_runtime_dependency 'dnsruby'
   spec.add_runtime_dependency 'mqtt'
-  spec.add_runtime_dependency 'net-ssh'
   spec.add_runtime_dependency 'ed25519' # Adds ed25519 keys for net-ssh
   spec.add_runtime_dependency 'bcrypt_pbkdf'
   spec.add_runtime_dependency 'ruby_smb', '~> 1.1'
+  spec.add_runtime_dependency 'net-dns', '~> 0.9'
   spec.add_runtime_dependency 'net-ldap'
+  spec.add_runtime_dependency 'net-ssh'
 
   #
   # REX Libraries
