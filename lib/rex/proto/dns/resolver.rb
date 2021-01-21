@@ -58,8 +58,6 @@ module DNS
       # 4) defaults (and /etc/resolv.conf for config)
       #------------------------------------------------------------
 
-
-
       #------------------------------------------------------------
       # Parsing config file
       #------------------------------------------------------------
@@ -74,7 +72,7 @@ module DNS
       # Parsing arguments
       #------------------------------------------------------------
       comm = config.delete(:comm)
-      context = context = config.delete(:context)
+      context = config.delete(:context)
       config.each do |key,val|
         next if key == :log_file or key == :config_file
         begin
@@ -324,56 +322,31 @@ module DNS
     # @return ans [Dnsruby::Message] DNS Response
     def search(name, type = Dnsruby::Types::A, cls = Dnsruby::Classes::IN)
 
-        return query(name,type,cls) if name.class == IPAddr
+      return query(name,type,cls) if name.class == IPAddr
 
-        # If the name contains at least one dot then try it as is first.
-        if name.include? "."
-          @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
-          ans = query(name,type,cls)
+      # If the name contains at least one dot then try it as is first.
+      if name.include? "."
+        @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
+        ans = query(name,type,cls)
+        return ans if ans.header.ancount > 0
+      end
+
+      # If the name doesn't end in a dot then apply the search list.
+      if name !~ /\.$/ and @config[:dns_search]
+        @config[:searchlist].each do |domain|
+          newname = name + "." + domain
+          @logger.debug "Search(#{newname},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
+          ans = query(newname,type,cls)
           return ans if ans.header.ancount > 0
         end
-
-        # If the name doesn't end in a dot then apply the search list.
-        if name !~ /\.$/ and @config[:dns_search]
-          @config[:searchlist].each do |domain|
-            newname = name + "." + domain
-            @logger.debug "Search(#{newname},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
-            ans = query(newname,type,cls)
-            return ans if ans.header.ancount > 0
-          end
-        end
-
-        # Finally, if the name has no dots then try it as is.
-        @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
-        return query(name+".",type,cls)
-
       end
 
-    end
-
-    #
-    # Perform query with default domain validation
-    #
-    # @param name
-    # @param type [Fixnum] Type of record to look up
-    # @param cls [Fixnum] Class of question to look up
-    #
-    # @return ans [Dnsruby::Message] DNS Response
-    def query(name, type = Dnsruby::Types::A, cls = Dnsruby::Classes::IN)
-
-      return send(name,type,cls) if name.class == IPAddr
-
-      # If the name doesn't contain any dots then append the default domain.
-      if name !~ /\./ and name !~ /:/ and @config[:defname]
-        name += "." + @config[:domain]
-      end
-
-      @logger.debug "Query(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
-
-      return send(name,type,cls)
+      # Finally, if the name has no dots then try it as is.
+      @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
+      return query(name+".",type,cls)
 
     end
-
+  end
 
 end
 end
