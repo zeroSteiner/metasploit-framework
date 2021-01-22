@@ -43,7 +43,11 @@ class OptAddressRange < OptBase
     if (value != nil and value.empty? == false)
       normalized = normalize(value)
       return false if normalized.nil?
-      walker = Rex::Socket::RangeWalker.new(normalized)
+      walker = Rex::Socket::RangeWalker.new(
+        normalized,
+        # use a dummy DNS resolver for the purposes of validation
+        resolver: -> hostname { ['127.0.0.1'] }
+      )
       if (not walker or not walker.valid?)
         return false
       end

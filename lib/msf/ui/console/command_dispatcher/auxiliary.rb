@@ -71,12 +71,15 @@ class Auxiliary
           return false
         end
 
-        rhosts_range = Rex::Socket::RangeWalker.new(rhosts_opt.normalize(rhosts))
-        rhosts_range.each do |rhost|
+        rhosts_range = Rex::Socket::RangeWalker.new(
+          rhosts_opt.normalize(rhosts),
+          resolver: -> hostname { Rex::Proto::DNS::Resolver.getaddresses(hostname, resolver: framework.dns_resolver) }
+        )
+        rhosts_range.each_hash do |rhost|
           nmod = mod.replicant
-          nmod.datastore['RHOST'] = rhost
-          nmod.datastore['VHOST'] = rhosts if (!Rex::Socket.is_ip_addr?(rhosts) && nmod.is_a?(Msf::Exploit::Remote::HttpClient) && nmod.datastore['VHOST'].nil?)
-          print_status("Running module against #{rhost}")
+          nmod.datastore['RHOST'] = rhost[:address]
+          nmod.datastore['VHOST'] = rhost[:hostname]
+          print_status("Running module against #{rhost[:address]}")
           nmod.run_simple(
             'Action'         => args[:action],
             'OptionStr'      => args[:datastore_options].map { |k,v| "#{k}=#{v}" }.join(','),
