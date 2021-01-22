@@ -370,10 +370,26 @@ module DNS
     def self.getaddresses(hostname, accept_ipv6 = true, resolver: nil)
       resolver = self.new if resolver.nil?
       addresses = []
-      types = [Dnsruby::Types::A]
-      types << Dnsruby::Types::AAAA if accept_ipv6
-      types.each do |type|
-        addresses += (resolver.search(hostname, type)&.answer || []).map { |answer| answer.address.to_s }
+
+      # first if it's an IP address, skip resolution altogether just like Rex::Socket.getaddresses does
+      if Rex::Socket.is_ip_addr?(hostname)
+        addresses << hostname
+      else
+        # second check the locally defined hosts, skip resolution if it's found
+        addresses += Dnsruby::Hosts.new.getaddresses(hostname)
+
+        # finally, actually reach out to a DNS server and try to perform the resolution
+        if addresses.empty?
+          types = [Dnsruby::Types::A]
+          types << Dnsruby::Types::AAAA if accept_ipv6
+          types.each do |type|
+            addresses += (resolver.search(hostname, type)&.answer || []).map { |answer| answer.address.to_s }
+          end
+        end
+      end
+
+      if !accept_ipv6
+        addresses = addresses.select { |addr| Rex::Socket.is_ipv4?(addr) } # drop non-IPv4 addresses
       end
 
       # replicate what Rex::Socket.getaddresses does when hostname fails to resolve
