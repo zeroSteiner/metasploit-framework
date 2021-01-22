@@ -82,6 +82,21 @@ module DNS
         end
       end
     end
+
+    #
+    # Create a new instance of this class based on a Dnsruby::Config instance. This class by default uses settings which
+    # won't work in most cases due to the server being the localhost where as the Dnsruby::Config will use the host
+    # settings.
+    #
+    def self.from_dnsruby_config(config=nil)
+      config = Dnsruby::Config.new || config
+      self.new({
+        nameservers: config.nameserver,
+        searchlist: config.search,
+        domain: config.domain || ''
+      })
+    end
+
     #
     # Provides current proxy setting if configured
     #
@@ -255,16 +270,17 @@ module DNS
                 end
               end
             end
-  			end
-		  rescue Timeout::Error
-			  @logger.warn "Nameserver #{ns} not responding within TCP timeout, trying next one"
-			  next
-		  ensure
-			  socket.close if socket
-		  end
-		end
-		return nil
-	  end
+          end
+        rescue Timeout::Error
+          @logger.warn "Nameserver #{ns} not responding within TCP timeout, trying next one"
+          next
+        ensure
+          socket.close if socket
+        end
+      end
+
+      return nil
+    end
 
     #
     # Send request over UDP
@@ -345,6 +361,25 @@ module DNS
       @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
       return query(name+".",type,cls)
 
+    end
+
+    def self.getaddress(hostname, accept_ipv6 = true, resolver: nil)
+      self.getaddresses(hostname, accept_ipv6, resolver: resolver).first
+    end
+
+    def self.getaddresses(hostname, accept_ipv6 = true, resolver: nil)
+      resolver = self.new if resolver.nil?
+      addresses = []
+      types = [Dnsruby::Types::A]
+      types << Dnsruby::Types::AAAA if accept_ipv6
+      types.each do |type|
+        addresses += (resolver.search(hostname, type)&.answer || []).map { |answer| answer.address.to_s }
+      end
+
+      # replicate what Rex::Socket.getaddresses does when hostname fails to resolve
+      raise ::SocketError.new('Name or service not known') if addresses.empty?
+
+      addresses
     end
   end
 

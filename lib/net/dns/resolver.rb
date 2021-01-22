@@ -253,7 +253,7 @@ module Net # :nodoc:
       #     #=> ["example.com","a.example.com","b.example.com"]
       #
       def searchlist
-        @config[:searchlist].inspect
+        @config[:searchlist]
       end
 
       # Set the resolver searchlist.

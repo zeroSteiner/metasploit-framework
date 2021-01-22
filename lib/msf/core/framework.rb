@@ -91,6 +91,15 @@ class Framework
   end
 
   #
+  # Returns a general purpose DNS resolver that is tied into Rex::Sockets to honor the routing table. The initial
+  # configuration is taken from the host.
+  #
+  def dns_resolver
+    @dns_resolver = Rex::Proto::DNS::Resolver.from_dnsruby_config if @dns_resolver.nil?
+    return @dns_resolver
+  end
+
+  #
   # Returns the module set for encoders.
   #
   def encoders
