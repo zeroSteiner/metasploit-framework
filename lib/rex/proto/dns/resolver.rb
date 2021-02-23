@@ -1,5 +1,6 @@
 # -*- coding: binary -*-
 
+require 'dnsruby'
 require 'net/dns/resolver'
 
 module Rex
