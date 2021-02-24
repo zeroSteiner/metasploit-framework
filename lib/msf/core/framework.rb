@@ -56,7 +56,7 @@ class Framework
   #
   def initialize(options={})
     self.options = options
-    # call super to initialize MonitorMixin.  #synchronize won't work without this.
+    # Call super to initialize MonitorMixin.  #synchronize won't work without this.
     super()
 
     # Allow specific module types to be loaded
@@ -70,6 +70,9 @@ class Framework
     self.plugins   = PluginManager.new(self)
     self.browser_profiles = Hash.new
     self.features = FeatureManager.instance
+
+    # Install the DNS resolution hook
+    Rex::Socket::SwitchBoard.getaddrinfo = method(:getaddrinfo)
 
     # Configure the thread factory
     Rex::ThreadFactory.provider = Metasploit::Framework::ThreadFactoryProvider.new(framework: self)
@@ -303,6 +306,13 @@ protected
     Metasploit::Framework::DataService::DataProxy.new(options)
   end
 
+  def getaddrinfo(*args, **kwargs, &block)
+    if Rex::Socket::SwitchBoard.routes.empty?
+      Addrinfo.getaddrinfo(*args, **kwargs, &block)  # use the default implementation if there are no active routes
+    else
+      dns_resolver.getaddrinfo(*args, **kwargs, &block)  # use a pivot-aware implementation if there are active routes
+    end
+  end
 end
 
 class FrameworkEventSubscriber
