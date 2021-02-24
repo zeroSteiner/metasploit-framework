@@ -71,10 +71,7 @@ class Auxiliary
           return false
         end
 
-        rhosts_range = Rex::Socket::RangeWalker.new(
-          rhosts_opt.normalize(rhosts),
-          resolver: -> hostname { Rex::Proto::DNS::Resolver.getaddresses(hostname, resolver: framework.dns_resolver) }
-        )
+        rhosts_range = Rex::Socket::RangeWalker.new(rhosts_opt.normalize(rhosts))
         rhosts_range.each_hash do |rhost|
           nmod = mod.replicant
           nmod.datastore['RHOST'] = rhost[:address]

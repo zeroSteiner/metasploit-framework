@@ -25,10 +25,7 @@ module Common
       return false
     end
     begin
-      rw = Rex::Socket::RangeWalker.new(
-        arg,
-        resolver: -> hostname { Rex::Proto::DNS::Resolver.getaddresses(hostname, resolver: framework.dns_resolver) }
-      )
+      rw = Rex::Socket::RangeWalker.new(arg)
     rescue
       print_error("Invalid host parameter, #{arg}.")
       return false
