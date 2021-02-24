@@ -345,7 +345,7 @@ module DNS
       if name.include? "."
         @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
         ans = query(name,type,cls)
-        return ans if ans.header.ancount > 0
+        return ans if ans && ans.header.ancount > 0
       end
 
       # If the name doesn't end in a dot then apply the search list.
@@ -354,49 +354,79 @@ module DNS
           newname = name + "." + domain
           @logger.debug "Search(#{newname},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
           ans = query(newname,type,cls)
-          return ans if ans.header.ancount > 0
+          return ans if ans && ans.header.ancount > 0
         end
       end
 
       # Finally, if the name has no dots then try it as is.
       @logger.debug "Search(#{name},#{Dnsruby::Types.new(type)},#{Dnsruby::Classes.new(cls)})"
       return query(name+".",type,cls)
-
     end
 
-    def self.getaddress(hostname, accept_ipv6 = true, resolver: nil)
-      self.getaddresses(hostname, accept_ipv6, resolver: resolver).first
-    end
+    def getaddrinfo(nodename, service, family=nil, socktype=nil, protocol=nil, _flags=nil)
+      # accept nil or AF_UNSPEC for these arguments, normalize on AF_UNSPEC
+      family = ::Socket::AF_UNSPEC if family.nil?
+      socktype = ::Socket::AF_UNSPEC if socktype.nil?
+      protocol = ::Socket::AF_UNSPEC if protocol.nil?
 
-    def self.getaddresses(hostname, accept_ipv6 = true, resolver: nil)
-      resolver = self.new if resolver.nil?
+      raise ::SocketError.new('ai_family not supported') unless [::Socket::AF_UNSPEC, ::Socket::AF_INET, ::Socket::AF_INET6].include?(family)
+
       addresses = []
+      accept_v4 = (family == ::Socket::AF_UNSPEC || family == ::Socket::AF_INET)
+      accept_v6 = (family == ::Socket::AF_UNSPEC || family == ::Socket::AF_INET6)
 
       # first if it's an IP address, skip resolution altogether just like Rex::Socket.getaddresses does
-      if Rex::Socket.is_ip_addr?(hostname)
-        addresses << hostname
+      if Rex::Socket.is_ip_addr?(nodename)
+        addresses << nodename
       else
         # second check the locally defined hosts, skip resolution if it's found
-        addresses += Dnsruby::Hosts.new.getaddresses(hostname)
+        addresses += Dnsruby::Hosts.new.getaddresses(nodename)
 
         # finally, actually reach out to a DNS server and try to perform the resolution
         if addresses.empty?
-          types = [Dnsruby::Types::A]
-          types << Dnsruby::Types::AAAA if accept_ipv6
+          types = []
+          types << Dnsruby::Types::A if accept_v4
+          types << Dnsruby::Types::AAAA if accept_v6
           types.each do |type|
-            addresses += (resolver.search(hostname, type)&.answer || []).map { |answer| answer.address.to_s }
+            addresses += (search(nodename, type)&.answer || []).map { |answer| answer.address.to_s }
           end
         end
       end
 
-      if !accept_ipv6
-        addresses = addresses.select { |addr| Rex::Socket.is_ipv4?(addr) } # drop non-IPv4 addresses
-      end
-
-      # replicate what Rex::Socket.getaddresses does when hostname fails to resolve
+      # replicate what Addrinfo.getaddrinfo does when hostname fails to resolve
       raise ::SocketError.new('Name or service not known') if addresses.empty?
 
-      addresses
+      infos = []
+      addresses.each do |address|
+        if Rex::Socket.is_ipv4?(address) && accept_v4
+          this_family = ::Socket::AF_INET
+        elsif Rex::Socket.is_ipv6?(address) && accept_v6
+          this_family = ::Socket::AF_INET6
+        else
+          next
+        end
+
+        sockaddr_in = ::Socket.sockaddr_in(service, address)
+        supported = false
+        if (socktype == ::Socket::AF_UNSPEC || socktype == ::Socket::SOCK_STREAM) && (protocol == ::Socket::AF_UNSPEC || protocol == ::Socket::IPPROTO_TCP)
+          infos << Addrinfo.new(sockaddr_in, this_family, ::Socket::SOCK_STREAM)
+          supported = true
+        end
+        if (socktype == ::Socket::AF_UNSPEC || socktype == ::Socket::SOCK_DGRAM) && (protocol == ::Socket::AF_UNSPEC || protocol == ::Socket::IPPROTO_UDP)
+          infos << Addrinfo.new(sockaddr_in, this_family, ::Socket::SOCK_DGRAM)
+          supported = true
+        end
+        if (socktype == ::Socket::AF_UNSPEC || socktype == ::Socket::SOCK_RAW)
+          infos << Addrinfo.new(sockaddr_in, this_family, ::Socket::SOCK_RAW)
+          supported = true
+        end
+
+        # if none of the conditions above matched, then this socktype/protocol combination is unsupported, replicate
+        # what Addrinfo.getaddrinfo does and raise an error
+        raise ::SocketError.new('ai_socktype not supported') unless supported
+      end
+
+      infos
     end
   end
 
