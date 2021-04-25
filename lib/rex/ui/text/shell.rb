@@ -66,7 +66,7 @@ module Shell
     if (self.input and self.input.supports_readline)
       # Unless cont_flag because there's no tab complete for continuation lines
       self.input = Input::Readline.new(lambda { |str| tab_complete(str) unless cont_flag })
-      if Readline::HISTORY.length == 0 and histfile and File.exist?(histfile)
+      if Readline::HISTORY.length == 0 && histfile and File.exist?(histfile)
         File.readlines(histfile).each { |e|
           Readline::HISTORY << e.chomp
         }
@@ -149,7 +149,13 @@ module Shell
         # If a block was passed in, pass the line to it.  If it returns true,
         # break out of the shell loop.
         elsif block
+          if self.histfile && line != @last_line
+          	File.open(self.histfile, "a+") { |f| f.puts(line) }
+          	@last_line = line
+          end
+          self.stop_count = 0
           break if block.call(line)
+
 
         # Otherwise, call what should be an overriden instance method to
         # process the line.
