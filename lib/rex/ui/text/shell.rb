@@ -66,7 +66,7 @@ module Shell
     if (self.input and self.input.supports_readline)
       # Unless cont_flag because there's no tab complete for continuation lines
       self.input = Input::Readline.new(lambda { |str| tab_complete(str) unless cont_flag })
-      if Readline::HISTORY.length == 0 && histfile and File.exist?(histfile)
+      if Readline::HISTORY.length == 0 and histfile and File.exist?(histfile)
         File.readlines(histfile).each { |e|
           Readline::HISTORY << e.chomp
         }
