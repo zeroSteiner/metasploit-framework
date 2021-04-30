@@ -14,8 +14,8 @@ class HistoryManager
   end
 
   def self.pop_context()
-  	cmds = []
-  	history_diff = Readline::HISTORY.size - @@original_histsize
+    cmds = []
+    history_diff = Readline::HISTORY.size - @@original_histsize
     history_diff.times do 
       cmds.push(Readline::HISTORY.pop)
     end
@@ -27,12 +27,12 @@ class HistoryManager
 
 
   def self.set_history_file(history_file)
-  	Readline::HISTORY.length.times {Readline::HISTORY.pop}
-  	if File.exist?(history_file)
-  	  File.readlines(history_file).each { |e|
-        Readline::HISTORY << e.chomp
-      }
-      @@original_histsize = Readline::HISTORY.size
+    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+    if File.exist?(history_file)
+    File.readlines(history_file).each { |e|
+      Readline::HISTORY << e.chomp
+    }
+    @@original_histsize = Readline::HISTORY.size
     else
       @@original_histsize = 0
     end
