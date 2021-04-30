@@ -307,7 +307,7 @@ class Config < Hash
     config_directory + FileSep + "history"
   end
 
-  def metpreter_history
+  def meterpreter_history
     config_directory + FileSep + "meterpreter_history"
   end
 
