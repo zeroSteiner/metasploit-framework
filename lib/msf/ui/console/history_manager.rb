@@ -1,5 +1,5 @@
 # -*- coding: binary -*-
-require 'pry'
+
 module Msf
 module Ui
 module Console
@@ -36,10 +36,10 @@ class HistoryManager
   def self.set_history_file(history_file)
     self.clear_readline
     if File.exist?(history_file)
-    File.readlines(history_file).each { |e|
-      Readline::HISTORY << e.chomp
-    }
-    @@original_histsize = Readline::HISTORY.size
+      File.readlines(history_file).each { |e|
+        Readline::HISTORY << e.chomp
+      }
+      @@original_histsize = Readline::HISTORY.size
     else
       @@original_histsize = 0
     end

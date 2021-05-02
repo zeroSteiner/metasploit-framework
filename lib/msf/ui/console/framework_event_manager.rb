@@ -38,6 +38,7 @@ module FrameworkEventManager
   end
 
   def on_session_fail(reason='')
+    Msf::Ui::Console::HistoryManager.pop_context
   end
 
   #
