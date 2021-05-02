@@ -9,6 +9,7 @@ class HistoryManager
   @@contexts = []
 
   def self.push_context(history_file)
+    pop_context() unless @@contexts.empty?
     @@contexts.push(history_file)
     self.set_history_file(history_file)
   end

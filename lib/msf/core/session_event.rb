@@ -22,7 +22,8 @@ module Msf::SessionEvent
   # Called when the user interacts with a session.
   #
   def on_session_interact(session)
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+    histfile = Msf::Config.meterpreter_history
+    Msf::Ui::Console::HistoryManager.push_context(histfile)
   end
 
   #

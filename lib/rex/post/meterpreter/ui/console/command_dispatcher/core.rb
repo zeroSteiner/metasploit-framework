@@ -337,7 +337,7 @@ class Console::CommandDispatcher::Core
 
   def cmd_background
     print_status("Backgrounding session #{client.name}...")
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+    Msf::Ui::Console::HistoryManager.pop_context
     client.interacting = false
   end
 
