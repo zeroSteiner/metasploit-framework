@@ -1,4 +1,5 @@
 # -*- coding: binary -*-
+require 'pry'
 module Msf
 module Ui
 module Console
@@ -9,12 +10,17 @@ class HistoryManager
   @@contexts = []
 
   def self.push_context(history_file)
-    pop_context() unless @@contexts.empty?
+    if @@contexts.length > 1
+      self.pop_context()
+    end
     @@contexts.push(history_file)
     self.set_history_file(history_file)
   end
 
   def self.pop_context()
+    if @@contexts.empty?
+      return
+    end
     cmds = []
     history_diff = Readline::HISTORY.size - @@original_histsize
     history_diff.times do 
@@ -23,12 +29,12 @@ class HistoryManager
     history_file = @@contexts.pop
     File.open(history_file, "a+") { |f| 
       f.puts(cmds.reverse) }
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+    self.clear_readline
   end
 
 
   def self.set_history_file(history_file)
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+    self.clear_readline
     if File.exist?(history_file)
     File.readlines(history_file).each { |e|
       Readline::HISTORY << e.chomp
@@ -37,6 +43,10 @@ class HistoryManager
     else
       @@original_histsize = 0
     end
+  end
+
+  def self.clear_readline
+    Readline::HISTORY.length.times {Readline::HISTORY.pop}
   end
 end
 
