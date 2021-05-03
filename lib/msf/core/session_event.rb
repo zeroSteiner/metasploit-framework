@@ -22,8 +22,10 @@ module Msf::SessionEvent
   # Called when the user interacts with a session.
   #
   def on_session_interact(session)
-    histfile = Msf::Config.meterpreter_history
-    Msf::Ui::Console::HistoryManager.push_context(histfile)
+    if session.type == 'meterpreter'
+      histfile = Msf::Config.meterpreter_history
+      Msf::Ui::Console::HistoryManager.push_context(histfile)
+    end
   end
 
   #
