@@ -7,28 +7,37 @@ module Console
 class HistoryManager
  
 
-  @@contexts = []
-
-  def self.push_context(history_file)
-    if @@contexts.length > 1
-      self.pop_context()
-    end
-    @@contexts.push(history_file)
-    self.set_history_file(history_file)
+  @@contexts = [{"history_file" => Msf::Config.history_file, "set_history" => false}]
+  
+  def self.inspect
+    "#<HistoryManager stack size: #{@@contexts.length}>"
   end
 
-  def self.pop_context()
+  def self.context_stack
+    @@contexts
+  end
+
+  def self.push_context(history_file, set_history = false)
+    @@contexts.push({"history_file" => history_file, "set_history" => set_history})
+    if set_history
+      self.set_history_file(history_file)
+    end
+  end
+
+  def self.pop_context
     if @@contexts.empty?
       return
     end
-    cmds = []
-    history_diff = Readline::HISTORY.size - @@original_histsize
-    history_diff.times do 
-      cmds.push(Readline::HISTORY.pop)
+    history_file, set_history = @@contexts.pop.values
+    if set_history
+      cmds = []
+      history_diff = Readline::HISTORY.size - @@original_histsize
+      history_diff.times do 
+        cmds.push(Readline::HISTORY.pop)
+      end
+      File.open(history_file, "a+") { |f| 
+        f.puts(cmds.reverse) }
     end
-    history_file = @@contexts.pop
-    File.open(history_file, "a+") { |f| 
-      f.puts(cmds.reverse) }
     self.clear_readline
   end
 

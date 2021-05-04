@@ -47,6 +47,7 @@ module Console::InteractiveChannel
     if (prompt_yesno("Background channel #{self.cid}?") == true)
       self.interactive(false)
 
+      Msf::Ui::Console::HistoryManager.clear_readline
       Msf::Ui::Console::HistoryManager.pop_context
       self.interacting = false
     end

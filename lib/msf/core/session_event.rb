@@ -23,8 +23,8 @@ module Msf::SessionEvent
   #
   def on_session_interact(session)
     if session.type == 'meterpreter'
-      histfile = Msf::Config.meterpreter_history
-      Msf::Ui::Console::HistoryManager.push_context(histfile)
+      Msf::Ui::Console::HistoryManager.clear_readline
+      Msf::Ui::Console::HistoryManager.push_context(Msf::Config.meterpreter_history, false)
     end
   end
 
