@@ -584,8 +584,9 @@ class Console::CommandDispatcher::Core
     if expressions.empty?
       print_status('Starting IRB shell...')
       print_status("You are in the \"client\" (session) object\n")
-
+      Msf::Ui::Console::HistoryManager.push_context(history_file: nil,name: 'IRB')
       Rex::Ui::Text::IrbShell.new(client).run
+      Msf::Ui::Console::HistoryManager.pop_context
     else
       # XXX: No vprint_status here
       if framework.datastore['VERBOSE'].to_s == 'true'
@@ -623,7 +624,7 @@ class Console::CommandDispatcher::Core
     print_status("You are in the \"client\" (session) object\n")
     histfile = Msf::Config.pry_history
     Pry.config.history_load = false
-    Msf::Ui::Console::HistoryManager.push_context(histfile, true)
+    Msf::Ui::Console::HistoryManager.push_context(history_file: histfile,name: :pry)
     client.pry
     Msf::Ui::Console::HistoryManager.pop_context
   end

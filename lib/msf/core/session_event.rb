@@ -22,10 +22,8 @@ module Msf::SessionEvent
   # Called when the user interacts with a session.
   #
   def on_session_interact(session)
-    if session.type == 'meterpreter'
-      Msf::Ui::Console::HistoryManager.clear_readline
-      Msf::Ui::Console::HistoryManager.push_context(Msf::Config.meterpreter_history, false)
-    end
+    Msf::Ui::Console::HistoryManager.clear_readline
+    Msf::Ui::Console::HistoryManager.push_context(history_file: nil, name: session.type.to_sym)
   end
 
   #
