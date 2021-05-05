@@ -19,6 +19,7 @@ class HistoryManager
 
   def self.push_context( history_file: nil, name: '')
     return if @@contexts[-1]['name'] == name
+    self.clear_readline
     @@contexts.push({"history_file" => history_file, "name" => name})
     if history_file
       self.set_history_file(history_file)

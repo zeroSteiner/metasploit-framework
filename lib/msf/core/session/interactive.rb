@@ -143,7 +143,6 @@ protected
     # Ask the user if they would like to background the session
     intent = prompt_yesno("Background session #{name}?")
     if intent
-      Msf::Ui::Console::HistoryManager.clear_readline
       Msf::Ui::Console::HistoryManager.pop_context
     else
       # User does not want to background the current session

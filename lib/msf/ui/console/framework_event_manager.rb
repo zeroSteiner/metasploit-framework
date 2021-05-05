@@ -45,7 +45,6 @@ module FrameworkEventManager
   # Called when a session is closed and removed from the framework.
   #
   def on_session_close(session, reason='')
-    Msf::Ui::Console::HistoryManager.clear_readline
     Msf::Ui::Console::HistoryManager.pop_context
     if (session.interacting == true)
       output.print_line
