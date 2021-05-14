@@ -546,7 +546,7 @@ class CommandShell
     if expressions.empty?
       print_status('Starting IRB shell...')
       print_status("You are in the \"self\" (session) object\n")
-      Msf::Ui::Console::HistoryManager.push_context(history_file: nil,name: 'IRB')
+      Msf::Ui::Console::HistoryManager.push_context(name: :irb)
       Rex::Ui::Text::IrbShell.new(self).run
       Msf::Ui::Console::HistoryManager.pop_context
     else
