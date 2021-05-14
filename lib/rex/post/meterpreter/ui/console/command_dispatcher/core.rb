@@ -337,7 +337,7 @@ class Console::CommandDispatcher::Core
 
   def cmd_background
     print_status("Backgrounding session #{client.name}...")
-    Msf::Ui::Console::HistoryManager.pop_context
+    Rex::Ui::Text::Shell::HistoryManager.pop_context
     client.interacting = false
   end
 
@@ -583,9 +583,9 @@ class Console::CommandDispatcher::Core
     if expressions.empty?
       print_status('Starting IRB shell...')
       print_status("You are in the \"client\" (session) object\n")
-      Msf::Ui::Console::HistoryManager.push_context(name: :irb)
+      Rex::Ui::Text::Shell::HistoryManager.push_context(name: :irb)
       Rex::Ui::Text::IrbShell.new(client).run
-      Msf::Ui::Console::HistoryManager.pop_context
+      Rex::Ui::Text::Shell::HistoryManager.pop_context
     else
       # XXX: No vprint_status here
       if framework.datastore['VERBOSE'].to_s == 'true'
@@ -623,9 +623,9 @@ class Console::CommandDispatcher::Core
     print_status("You are in the \"client\" (session) object\n")
     histfile = Msf::Config.pry_history
     Pry.config.history_load = false
-    Msf::Ui::Console::HistoryManager.push_context(history_file: histfile,name: :pry)
+    Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: histfile,name: :pry)
     client.pry
-    Msf::Ui::Console::HistoryManager.pop_context
+    Rex::Ui::Text::Shell::HistoryManager.pop_context
   end
 
   @@set_timeouts_opts = Rex::Parser::Arguments.new(

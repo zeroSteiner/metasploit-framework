@@ -111,7 +111,7 @@ class Msf::Ui::Console::CommandDispatcher::Developer
       print_status('Starting IRB shell...')
 
       begin
-      Msf::Ui::Console::HistoryManager.push_context(name: :irb)
+      Rex::Ui::Text::Shell::HistoryManager.push_context(name: :irb)
         if active_module
           print_status("You are in #{active_module.fullname}\n")
           Rex::Ui::Text::IrbShell.new(active_module).run
@@ -119,7 +119,7 @@ class Msf::Ui::Console::CommandDispatcher::Developer
           print_status("You are in the \"framework\" object\n")
           Rex::Ui::Text::IrbShell.new(framework).run
         end
-        Msf::Ui::Console::HistoryManager.pop_context
+        Rex::Ui::Text::Shell::HistoryManager.pop_context
       rescue
         print_error("Error during IRB: #{$!}\n\n#{$@.join("\n")}")
       end
@@ -175,9 +175,9 @@ class Msf::Ui::Console::CommandDispatcher::Developer
 
     unless active_module
       print_status("You are in the \"framework\" object\n")
-      Msf::Ui::Console::HistoryManager.push_context(history_file: histfile,name: :pry)
+      Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: histfile,name: :pry)
       framework.pry
-      Msf::Ui::Console::HistoryManager.pop_context
+      Rex::Ui::Text::Shell::HistoryManager.pop_context
       return
     end
 

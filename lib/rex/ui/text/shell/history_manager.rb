@@ -1,8 +1,9 @@
 # -*- coding: binary -*-
 
-module Msf
+module Rex
 module Ui
-module Console
+module Text
+module Shell
 
 class HistoryManager
  
@@ -61,6 +62,7 @@ class HistoryManager
   end
 end
 
+end
 end
 end
 end
