@@ -111,7 +111,7 @@ class Msf::Ui::Console::CommandDispatcher::Developer
       print_status('Starting IRB shell...')
 
       begin
-        Msf::Ui::Console::HistoryManager.push_context(history_file: nil,name: 'IRB')
+      Msf::Ui::Console::HistoryManager.push_context(name: :irb)
         if active_module
           print_status("You are in #{active_module.fullname}\n")
           Rex::Ui::Text::IrbShell.new(active_module).run
