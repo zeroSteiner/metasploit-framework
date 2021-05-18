@@ -22,7 +22,10 @@ module Msf::SessionEvent
   # Called when the user interacts with a session.
   #
   def on_session_interact(session)
-    Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: nil, name: session.type.to_sym)
+    Rex::Ui::Text::Shell::HistoryManager.push_context(
+      history_file: session.type == 'meterpreter' ? Msf::Config.meterpreter_history : nil,
+      name: session.type.to_sym
+    )
   end
 
   #

@@ -8,7 +8,7 @@ module Shell
 class HistoryManager
  
 
-  @@contexts = [{"history_file" => Msf::Config.history_file, "name" => :msfconsole}]
+  @@contexts = [{:history_file => Msf::Config.history_file, :name => :msfconsole}]
   
   def self.inspect
     "#<HistoryManager stack size: #{@@contexts.length}>"
@@ -19,9 +19,9 @@ class HistoryManager
   end
 
   def self.push_context(history_file: nil, name: nil)
-    return if @@contexts[-1]['name'] == name
+    return if @@contexts[-1][:name] == name
     self.clear_readline
-    @@contexts.push({"history_file" => history_file, "name" => name})
+    @@contexts.push({:history_file => history_file, :name => name})
     if history_file
       self.set_history_file(history_file)
     end
@@ -44,6 +44,11 @@ class HistoryManager
     self.clear_readline
   end
 
+  def self.clear_readline
+    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+  end  
+
+private
 
   def self.set_history_file(history_file)
     self.clear_readline
