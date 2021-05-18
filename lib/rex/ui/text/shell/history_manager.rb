@@ -46,7 +46,11 @@ class HistoryManager
 
   def self.clear_readline
     Readline::HISTORY.length.times {Readline::HISTORY.pop}
-  end  
+  end
+ 
+  def self.clear_readline
+    Readline::HISTORY.length.times {Readline::HISTORY.pop}
+  end
 
 private
 
@@ -62,9 +66,6 @@ private
     end
   end
 
-  def self.clear_readline
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
-  end
 end
 
 end
