@@ -38,7 +38,6 @@ module FrameworkEventManager
   end
 
   def on_session_fail(reason='')
-    Rex::Ui::Text::Shell::HistoryManager.clear_readline
   end
 
   #

@@ -21,12 +21,18 @@ module Interactive
   # forwarding input from user_input to rstream and forwarding input from
   # rstream to user_output.
   #
-  def interact(user_input, user_output)
+  def interact(user_input, user_output, history_context: {:history_file => nil, :name => nil})
 
     # Detach from any existing console
     if(self.interacting)
       detach()
     end
+
+    history_file = history_context[:history_file]
+    name = history_context[:name]
+
+    Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: history_file, name: name)
+
 
     init_ui(user_input, user_output)
 

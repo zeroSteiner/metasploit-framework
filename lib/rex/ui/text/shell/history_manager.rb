@@ -19,8 +19,7 @@ class HistoryManager
   end
 
   def self.push_context(history_file: nil, name: nil)
-    return if @@contexts[-1][:name] == name
-    self.clear_readline
+    clear_readline
     @@contexts.push({:history_file => history_file, :name => name})
     if history_file
       self.set_history_file(history_file)
@@ -29,6 +28,7 @@ class HistoryManager
 
   def self.pop_context
     if @@contexts.empty?
+      elog("`pop_context' called even when the stack was already empty!")
       return
     end
     history_file, name = @@contexts.pop.values
@@ -41,31 +41,29 @@ class HistoryManager
       File.open(history_file, "a+") { |f| 
         f.puts(cmds.reverse) }
     end
-    self.clear_readline
+    clear_readline
   end
 
-  def self.clear_readline
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
-  end
- 
-  def self.clear_readline
-    Readline::HISTORY.length.times {Readline::HISTORY.pop}
-  end
-
-private
-
-  def self.set_history_file(history_file)
-    self.clear_readline
-    if File.exist?(history_file)
-      File.readlines(history_file).each { |e|
-        Readline::HISTORY << e.chomp
-      }
-      @@original_histsize = Readline::HISTORY.size
-    else
-      @@original_histsize = 0
+  class << self
+    private
+  
+    def set_history_file(history_file)
+      clear_readline
+      if File.exist?(history_file)
+        File.readlines(history_file).each { |e|
+          Readline::HISTORY << e.chomp
+        }
+        @@original_histsize = Readline::HISTORY.size
+      else
+        @@original_histsize = 0
+      end
     end
-  end
 
+    def clear_readline
+      Readline::HISTORY.length.times {Readline::HISTORY.pop}
+    end
+
+  end
 end
 
 end
