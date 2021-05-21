@@ -44,6 +44,16 @@ class HistoryManager
     clear_readline
   end
 
+  def self.with_context(**kwargs, &block)
+    self.push_context(**kwargs)
+
+    begin
+      block.call
+    ensure
+      self.pop_context
+    end
+  end
+
   class << self
     private
 
