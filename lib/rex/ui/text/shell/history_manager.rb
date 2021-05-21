@@ -7,7 +7,7 @@ module Shell
 
 class HistoryManager
 
-  @@contexts = [{:history_file => Msf::Config.history_file, :name => :msfconsole}]
+  @@contexts = []
 
   def self.inspect
     "#<HistoryManager stack size: #{@@contexts.length}>"
