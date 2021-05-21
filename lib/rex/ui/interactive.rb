@@ -28,11 +28,7 @@ module Interactive
       detach()
     end
 
-    history_file = history_context[:history_file]
-    name = history_context[:name]
-
-    Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: history_file, name: name)
-
+    Rex::Ui::Text::Shell::HistoryManager.push_context(**history_context)
 
     init_ui(user_input, user_output)
 

@@ -584,9 +584,8 @@ class CommandShell
 
     print_status('Starting Pry shell...')
     print_status("You are in the \"self\" (session) object\n")
-    histfile = Msf::Config.pry_history
     Pry.config.history_load = false
-    Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: histfile,name: :pry)
+    Rex::Ui::Text::Shell::HistoryManager.push_context(history_file: Msf::Config.pry_history, name: :pry)
     self.pry
     Rex::Ui::Text::Shell::HistoryManager.pop_context
   end

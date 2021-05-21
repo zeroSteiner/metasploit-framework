@@ -106,7 +106,7 @@ protected
   #
   # Stub method that is meant to handler interaction.
   #
-  def _interact   
+  def _interact
     framework.events.on_session_interact(self)
   end
 

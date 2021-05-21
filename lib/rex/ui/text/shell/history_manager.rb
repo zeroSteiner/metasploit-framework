@@ -6,10 +6,9 @@ module Text
 module Shell
 
 class HistoryManager
- 
 
   @@contexts = [{:history_file => Msf::Config.history_file, :name => :msfconsole}]
-  
+
   def self.inspect
     "#<HistoryManager stack size: #{@@contexts.length}>"
   end
@@ -28,31 +27,32 @@ class HistoryManager
 
   def self.pop_context
     if @@contexts.empty?
-      elog("`pop_context' called even when the stack was already empty!")
+      elog("`#pop_context' called even when the stack was already empty!")
       return
     end
     history_file, name = @@contexts.pop.values
     if history_file
       cmds = []
       history_diff = Readline::HISTORY.size - @@original_histsize
-      history_diff.times do 
+      history_diff.times do
         cmds.push(Readline::HISTORY.pop)
       end
-      File.open(history_file, "a+") { |f| 
-        f.puts(cmds.reverse) }
+      File.open(history_file, 'a+') do |f|
+        f.puts(cmds.reverse)
+      end
     end
     clear_readline
   end
 
   class << self
     private
-  
+
     def set_history_file(history_file)
       clear_readline
       if File.exist?(history_file)
-        File.readlines(history_file).each { |e|
+        File.readlines(history_file).each do |e|
           Readline::HISTORY << e.chomp
-        }
+        end
         @@original_histsize = Readline::HISTORY.size
       else
         @@original_histsize = 0
@@ -60,7 +60,7 @@ class HistoryManager
     end
 
     def clear_readline
-      Readline::HISTORY.length.times {Readline::HISTORY.pop}
+      Readline::HISTORY.length.times { Readline::HISTORY.pop }
     end
 
   end
