@@ -18,18 +18,24 @@ class HistoryManager
   end
 
   def self.push_context(history_file: nil, name: nil)
-    clear_readline
+    dlog("HistoryManager.push_context name: #{name.inspect}")
     @@contexts.push({:history_file => history_file, :name => name})
+
     if history_file
-      self.set_history_file(history_file)
+      self.load_history_file(history_file)
+    else
+      clear_readline
     end
+
+    @@original_histsize = Readline::HISTORY.size
   end
 
   def self.pop_context
     if @@contexts.empty?
-      elog("`#pop_context' called even when the stack was already empty!")
+      elog("HistoryManager.pop_context called even when the stack was already empty!")
       return
     end
+
     history_file, name = @@contexts.pop.values
     if history_file
       cmds = []
@@ -41,7 +47,13 @@ class HistoryManager
         f.puts(cmds.reverse)
       end
     end
-    clear_readline
+
+    unless @@contexts.empty?
+      history_file = @@contexts.last[:history_file]
+      self.load_history_file(history_file) unless history_file.nil?
+    end
+
+    dlog("HistoryManager.pop_context name: #{name.inspect}")
   end
 
   def self.with_context(**kwargs, &block)
@@ -57,15 +69,12 @@ class HistoryManager
   class << self
     private
 
-    def set_history_file(history_file)
+    def load_history_file(history_file)
       clear_readline
       if File.exist?(history_file)
         File.readlines(history_file).each do |e|
           Readline::HISTORY << e.chomp
         end
-        @@original_histsize = Readline::HISTORY.size
-      else
-        @@original_histsize = 0
       end
     end
 
