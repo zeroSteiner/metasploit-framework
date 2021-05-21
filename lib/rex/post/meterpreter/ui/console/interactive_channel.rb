@@ -47,7 +47,6 @@ module Console::InteractiveChannel
     if (prompt_yesno("Background channel #{self.cid}?") == true)
       self.interactive(false)
 
-      Rex::Ui::Text::Shell::HistoryManager.pop_context
       self.interacting = false
     end
   end

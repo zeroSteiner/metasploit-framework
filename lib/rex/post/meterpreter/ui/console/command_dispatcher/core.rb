@@ -337,7 +337,6 @@ class Console::CommandDispatcher::Core
 
   def cmd_background
     print_status("Backgrounding session #{client.name}...")
-    Rex::Ui::Text::Shell::HistoryManager.pop_context
     client.interacting = false
   end
 
