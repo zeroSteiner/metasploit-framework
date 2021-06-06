@@ -28,15 +28,20 @@ module Payload::Python::MeterpreterLoader
 
     register_advanced_options(
       [
-        OptBool.new(
-          'MeterpreterTryToFork',
-          'Fork a new process if the functionality is available',
-          default: true
+        Msf::OptBool.new('PrependFork',
+          [
+            false,
+            "Prepend a stub that forks a new process (if available on the target platform)",
+            false
+          ], aliases: %w[ MeterpreterTryToFork ]
         ),
-        OptBool.new(
-          'PythonMeterpreterDebug',
-          'Enable debugging for the Python meterpreter'
-        ),
+        Msf::OptInt.new('MeterpreterDebugLevel',
+          [
+            true,
+            "Set debug level for meterpreter 0-3 (Default output is strerr)",
+            0
+          ], aliases: %w[ PythonMeterpreterDebug ]
+        )
       ] +
       Msf::Opt::http_header_options
     )
@@ -70,10 +75,10 @@ module Payload::Python::MeterpreterLoader
       txt.gsub('\\', '\\' * 8).gsub('\'', %q(\\\\\\\'))
     }
 
-    unless ds['MeterpreterTryToFork']
+    unless ds['PrependFork']
       met.sub!('TRY_TO_FORK = True', 'TRY_TO_FORK = False')
     end
-    if ds['PythonMeterpreterDebug']
+    if ds['MeterpreterDebugLevel'].to_i > 0
       met.sub!('DEBUGGING = False', 'DEBUGGING = True')
     end
 
