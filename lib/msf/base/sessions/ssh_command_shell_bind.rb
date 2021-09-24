@@ -167,7 +167,7 @@ module Msf::Sessions
       initialize_channels
       @channel_ticker = 0
 
-      rstream = Net::SSH::CommandStream.new(ssh_connection).lsock
+      rstream = Net::SSH::CommandStream.new(ssh_connection, pty: true).lsock
       super(rstream, opts)
     end
 
