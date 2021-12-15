@@ -208,8 +208,8 @@ class Server
   # @param attrflt [Array, Symbol] LDAP attribute filter
   #
   # @return [Array] Query matches
-  def search_ldif(filter, attrflt = :all)
-    return [] if @ldif.nil?
+  def search_ldif(filter, msgid, attrflt = :all)
+    return [] if @ldif.nil? or @ldif.empty?
     ldif.map do |dn, entry|
       if filter.match(entry)
         attrs = []
