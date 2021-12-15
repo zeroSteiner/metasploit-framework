@@ -60,7 +60,7 @@ class Server
   #
   # @return [Rex::Proto::LDAP::Server] LDAP Server object
   attr_reader :serve_udp, :serve_tcp, :sock_options, :udp_sock, :tcp_sock, :syntax, :ldif
-  def initialize(lhost = '0.0.0.0', lport = 389, udp: true, tcp: true, ldif: nil, comm: nil, ctx: {}, dblock: nil, sblock: nil)
+  def initialize(lhost = '0.0.0.0', lport = 389, udp = true, tcp = true, ldif = nil, comm = nil, ctx = {}, dblock = nil, sblock = nil)
     @serve_udp    = udp
     @serve_tcp    = tcp
     @sock_options = {
@@ -205,10 +205,10 @@ class Server
   # Search provided ldif data for query information
   #
   # @param filter [Net::LDAP::Filter] LDAP query filter
-  # @param attrflt [Array] LDAP attribute filter
+  # @param attrflt [Array, Symbol] LDAP attribute filter
   #
   # @return [Array] Query matches
-  def search_ldif(filter, attrflt)
+  def search_ldif(filter, attrflt = :all)
     return [] if @ldif.nil?
     ldif.map do |dn, entry|
       if filter.match(entry)
@@ -219,7 +219,10 @@ class Server
             attrs << [k.to_ber, attrvals].to_ber_sequence
           end
         end
-        appseq = [dn.to_ber, attrs.to_ber_sequence].to_ber_appsequence(4)
+        appseq = [
+          dn.to_ber,
+          attrs.to_ber_sequence
+        ].to_ber_appsequence(4)
         [msgid.to_ber, appseq].to_ber_sequence
       end
     end.compact
