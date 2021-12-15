@@ -60,6 +60,7 @@ class Server
   #
   # @return [Rex::Proto::LDAP::Server] LDAP Server object
   attr_reader :serve_udp, :serve_tcp, :sock_options, :udp_sock, :tcp_sock, :syntax, :ldif
+  attr_accessor :on_request_pdu
   def initialize(lhost = '0.0.0.0', lport = 389, udp = true, tcp = true, ldif = nil, comm = nil, ctx = {}, dblock = nil, sblock = nil)
     @serve_udp    = udp
     @serve_tcp    = tcp
@@ -71,7 +72,7 @@ class Server
     }
     @ldif         = ldif
     self.listener_thread = nil
-    self.dispatch_request_proc = dblock
+    self.on_request_pdu = dblock
     self.send_response_proc = sblock
   end
 
@@ -86,7 +87,6 @@ class Server
   # Start the LDAP server
   #
   def start
-
     if self.serve_udp
       @udp_sock = Rex::Socket::Udp.create(self.sock_options)
       self.listener_thread = Rex::ThreadFactory.spawn("UDPLDAPServerListener", false) {
@@ -131,10 +131,20 @@ class Server
   # @param cli [Rex::Socket::Tcp, Rex::Socket::Udp] Client sending the request
   # @param data [String] raw LDAP request data
   def dispatch_request(cli, data)
-    if self.dispatch_request_proc
-      self.dispatch_request_proc.call(cli,data)
-    else
-      default_dispatch_request(cli,data)
+    return if data.strip.empty?
+    data.extend(Net::BER::Extensions::String)
+    while !data.empty? && pdu = Net::LDAP::PDU.new(data.read_ber!(Net::LDAP::AsnSyntax))
+      begin
+        if self.on_request_pdu
+          resp = self.on_request_pdu.call(cli, pdu)
+        else
+          resp = default_on_request_pdu(cli, pdu)
+        end
+
+        resp.nil? ? cli.close : send_response(cli, resp)
+      rescue
+        cli.close
+      end
     end
   end
 
@@ -143,37 +153,22 @@ class Server
   #
   # @param cli [Rex::Socket::Tcp, Rex::Socket::Udp] Client sending the request
   # @param data [String] raw LDAP request data
-  def default_dispatch_request(cli, data)
-    return if data.strip.empty?
-    data.extend(Net::BER::Extensions::String)
-    while pdu = Net::LDAP::PDU.new(data.read_ber!(Net::LDAP::AsnSyntax))
-      begin
-        resp = case pdu.app_tag
-        when Net::LDAP::PDU::BindRequest # bind request
-          cli.authenticated = true
-          encode_ldap_response(
-            pdu.message_id,
-            Net::LDAP::ResultCodeSuccess,
-            '',
-            '',
-            Net::LDAP::PDU::BindResult
-          )
-        when Net::LDAP::PDU::SearchRequest # search request
-          if cli.authenticated
-            # Perform query against some loaded LDIF structure
-            treebase = pdu.search_parameters[:base_object].to_s
-            # ... search, build packet, send to client
-            encode_ldap_response(pdu.message_id, Net::LDAP::ResultCodeSuccess, "", "Authenticated", 5)
-          else
-            encode_ldap_response(pdu.message_id, Net::LDAP::ResultCodeSuccess, "", "Authenticated", 5)
-          end
-        else
-          nil
-        end
-        resp.nil? ? cli.close : send_response(cli, resp)
-      rescue
-        cli.close
+  def default_on_request_pdu(cli, pdu)
+    case pdu.app_tag
+    when Net::LDAP::PDU::BindRequest # bind request
+      cli.authenticated = true
+      encode_ldap_response(pdu.message_id, Net::LDAP::ResultCodeSuccess, '', '', Net::LDAP::PDU::BindResult)
+    when Net::LDAP::PDU::SearchRequest # search request
+      if cli.authenticated
+        # Perform query against some loaded LDIF structure
+        treebase = pdu.search_parameters[:base_object].to_s
+        # ... search, build packet, send to client
+        encode_ldap_response(pdu.message_id, Net::LDAP::ResultCodeSuccess, "", "Authenticated", 5)
+      else
+        encode_ldap_response(pdu.message_id, Net::LDAP::ResultCodeSuccess, "", "Authenticated", 5)
       end
+    else
+      nil
     end
   end
 

