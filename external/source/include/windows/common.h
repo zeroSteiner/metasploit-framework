@@ -27,7 +27,6 @@ static _inline void real_dprintf(char* format, ...)
 	strcat_s(buffer, sizeof(buffer), "\r\n");
 	OutputDebugStringA(buffer);
 	va_end(args);
-	Sleep(500);
 }
 
 typedef struct _EPROCESS_OFFSETS {
