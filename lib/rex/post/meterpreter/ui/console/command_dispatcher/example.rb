@@ -6,9 +6,9 @@ module Post
 module Meterpreter
 module Ui
 
-class Console::CommandDispatcher::Foobar
+class Console::CommandDispatcher::Example
 
-  Klass = Console::CommandDispatcher::Foobar
+  Klass = Console::CommandDispatcher::Example
 
   include Console::CommandDispatcher
 
@@ -16,7 +16,7 @@ class Console::CommandDispatcher::Foobar
   # Name for this dispatcher
   #
   def name
-    'Foobar'
+    'Example'
   end
 
   #
@@ -34,7 +34,7 @@ class Console::CommandDispatcher::Foobar
       return
     end
     message = args[0]
-    response_message = client.foobar.echo(message)
+    response_message = client.example.echo(message)
     print_status("Echoed: #{response_message}")
     return true
   end
