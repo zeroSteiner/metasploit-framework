@@ -1,4 +1,4 @@
-# Kerberos Authentication
+# Kerberos authentication
 Since version 6.3, Metasploit has included authentication via Kerberos for multiple types of modules. Kerberos
 authentication allows Metasploit users to request and utilize Ticket Granting Tickets (TGTs) and Ticket Granting
 Services (TGSs) to authenticate with supported modules. Metasploit uses an internal caching and storage machanism but
@@ -13,7 +13,7 @@ The following types of modules support Kerberos authentication:
 * SMB
 * WinRM
 
-## Datastore Options
+## Datastore options
 Kerberos authentication requires additional options to be set. Some of them are prefixed with the protocol the module
 is authenticating. For example, the PSexec module which operates over SMB would use the "SMB" prefix.
 
@@ -33,7 +33,7 @@ Optional options:
   * `write-only` -- New tickets are requested and they are stored for reuse.
   * `read-write` -- Stored tickets from the cache will be used and new tickets will be stored for reuse.
 
-## Ticket Management
+## Ticket management
 When a write-enabled `KrbCacheMode` is used, tickets that are issued to Metasploit will be stored for reuse. The `klist`
 command can be used to view tickets. It is a top level command and can be run even if a module is in use.
 
@@ -90,5 +90,67 @@ Cache[0]:
 ```
 
 The `klist` command can also be used for deleting tickets from the cache.
+
+## Ticket cache storage
+Metasploit stores tickets for future use in a user configurable way as controlled by the `KrbCacheMode` datastore
+option. When a user attempts to use Kerberos to authenticate to a remote service such as SMB, if the cache mode is
+read-enabled (e.g. set to `read-only` or `read-write`) and Metasploit is connected to a database, it will attempt to
+fetch an existing ticket using the following steps.
+
+1. First Metasploit will use the datastore options, including the target host and username to search though the stored
+   tickets for an SMB-specific Ticket Granting Service (TGS). If one is found, it will be used. Tickets that are expired
+   will not be used.
+2. If no TGS is found, Metasploit will repeat the search process looking for a Ticket Granting Ticket (TGT). If one is
+   found, it will be used to contact the Key Distribution Center (KDC) and request a TGS for authentication to the SMB
+   service.
+3. If no TGT is found, Metasploit will contact the KDC and authenticate using the username and password from the
+   datastore to request a TGT then an SMB-specific TGS before authenticating to the SMB service.
+
+If the cache mode is write-enabled (e.g. set to `write-only` or `read-write`) then any ticket, either TGT or TGS that is
+obtained either from the KDC or through other means, is stored for use in the cache. **If the cache mode is not
+write-enabled, tickets will not be stored.** Tickets are saved as loot, allowing them to be stored even if the database
+is not connected, however without the database, Metasploit can not lookup tickets for reuse as required by the
+read-enabled modes. Metasploit stores exactly one ticket per CCACHE file.
+
+Use a read-enabled cache mode to avoid unnecessary contact with the KDC. Use a write-enabled cache mode to store tickets
+for use with either Metasploit or other tools.
+
+## Using tickets with external tools
+When a ticket (either TGT or TGS) is stored, it is saved along with the other loot Metasploit has collected. The raw
+CCACHE files can be viewed with the `loot --type mit.kerberos.ccache` command (the `--type` argument filters for the
+specified type).
+
+```
+msf6 auxiliary(admin/dcerpc/icpr_cert) > loot --type mit.kerberos.ccache
+
+Loot
+====
+
+host            service  type                 name             content                   info                                                                  path
+----            -------  ----                 ----             -------                   ----                                                                  ----
+192.168.159.10           mit.kerberos.ccache                   application/octet-stream  realm: MSFLAB.LOCAL, client: smcintyre, server: krbtgt/msflab.local   /home/smcintyre/.msf4/loot/20221219105440_default_192.168.159.10_mit.kerberos.cca_905330.bin
+192.168.159.10           mit.kerberos.ccache                   application/octet-stream  realm: MSFLAB.LOCAL, client: smcintyre, server: cifs/dc.msflab.local  /home/smcintyre/.msf4/loot/20221219105440_default_192.168.159.10_mit.kerberos.cca_539055.bin
+```
+
+The path on the far right is where the CCACHE file is on disk. This path can be used with other tools such as Impacket
+through the `KRB5CCNAME` environment variable.
+
+For example:
+
+```
+[user@localhost]$ KRB5CCNAME=/home/smcintyre/.msf4/loot/20221219105440_default_192.168.159.10_mit.kerberos.cca_539055.bin \
+  python examples/smbclient.py  dc.msflab.local -target-ip 192.168.159.10 -k
+Impacket v0.9.22.dev1+20200327.103853.7e505892 - Copyright 2021 SecureAuth Corporation
+
+Type help for list of commands
+# info
+Version Major: 10
+Version Minor: 0
+Server Name: DC
+Server Comment: 
+Server UserPath: c:\
+Simultaneous Users: 16777216
+# 
+```
 
 [1]: http://web.mit.edu/KERBEROS/krb5-devel/doc/formats/ccache_file_format.html
