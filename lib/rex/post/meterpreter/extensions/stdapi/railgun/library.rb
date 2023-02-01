@@ -51,6 +51,7 @@ class Library
     'SIZE_T'  => 'ULONG_PTR',
     'PSIZE_T' => 'PULONG_PTR',
     'PLPVOID' => 'PULONG_PTR',
+    'ULONG'   => 'DWORD',
     'PULONG'  => 'PDWORD'
   }.freeze
 

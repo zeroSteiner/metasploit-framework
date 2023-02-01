@@ -28,10 +28,10 @@ class Def_windows_wldap32
     dll.add_function('ldap_search_sA', 'DWORD',[
         ['PHANDLE', 'ld', 'in'],
         ['PCHAR', 'base', 'in'],
-        ['DWORD', 'scope', 'in'],
+        ['ULONG', 'scope', 'in'],
         ['PCHAR', 'filter', 'in'],
         ['PCHAR', 'attrs[]', 'in'],
-        ['DWORD', 'attrsonly', 'in'],
+        ['ULONG', 'attrsonly', 'in'],
         ['PLPVOID', 'res', 'out']
     ], 'ldap_search_sA', "cdecl")
 
@@ -44,14 +44,14 @@ class Def_windows_wldap32
     dll.add_function('ldap_search_ext_sA', 'DWORD',[
         ['PHANDLE', 'ld', 'in'],
         ['PCHAR', 'base', 'in'],
-        ['DWORD', 'scope', 'in'],
+        ['ULONG', 'scope', 'in'],
         ['PCHAR', 'filter', 'in'],
         ['PCHAR', 'attrs[]', 'in'],
-        ['DWORD', 'attrsonly', 'in'],
+        ['ULONG', 'attrsonly', 'in'],
         ['PVOID', 'pServerControls', 'in'],
         ['PVOID', 'pClientControls', 'in'],
         ['PBLOB', 'pTimeout', 'in'],
-        ['DWORD', 'SizeLimit', 'in'],
+        ['ULONG', 'SizeLimit', 'in'],
         ['PLPVOID', 'res', 'out']
     ], 'ldap_search_ext_sA', "cdecl")
 
