@@ -19,14 +19,14 @@ class Def_windows_wldap32
     ], 'ldap_sslinitA', "cdecl")
 
     dll.add_function('ldap_bind_sA', 'DWORD',[
-        ['DWORD', 'ld', 'in'],
+        ['LPVOID', 'ld', 'in'],
         ['PCHAR', 'dn', 'in'],
         ['PCHAR', 'cred', 'in'],
         ['DWORD', 'method', 'in']
     ], 'ldap_bind_sA', "cdecl")
 
     dll.add_function('ldap_search_sA', 'DWORD',[
-        ['PHANDLE', 'ld', 'in'],
+        ['LPVOID', 'ld', 'in'],
         ['PCHAR', 'base', 'in'],
         ['ULONG', 'scope', 'in'],
         ['PCHAR', 'filter', 'in'],
@@ -36,13 +36,13 @@ class Def_windows_wldap32
     ], 'ldap_search_sA', "cdecl")
 
     dll.add_function('ldap_set_option', 'DWORD',[
-        ['DWORD', 'ld', 'in'],
+        ['LPVOID', 'ld', 'in'],
         ['DWORD', 'option', 'in'],
-        ['PDWORD', 'invalue', 'in']
+        ['LPVOID', 'invalue', 'in']
     ], 'ldap_set_option', "cdecl")
 
     dll.add_function('ldap_search_ext_sA', 'DWORD',[
-        ['PHANDLE', 'ld', 'in'],
+        ['LPVOID', 'ld', 'in'],
         ['PCHAR', 'base', 'in'],
         ['ULONG', 'scope', 'in'],
         ['PCHAR', 'filter', 'in'],
@@ -56,67 +56,67 @@ class Def_windows_wldap32
     ], 'ldap_search_ext_sA', "cdecl")
 
     dll.add_function('ldap_count_entries', 'DWORD',[
-        ['DWORD', 'ld', 'in'],
-        ['DWORD', 'res', 'in']
+        ['LPVOID', 'ld', 'in'],
+        ['LPVOID', 'res', 'in']
     ], "ldap_count_entries", "cdecl")
 
     dll.add_function('ldap_first_entry', 'LPVOID',[
-        ['DWORD', 'ld', 'in'],
-        ['DWORD', 'res', 'in']
+        ['LPVOID', 'ld', 'in'],
+        ['LPVOID', 'res', 'in']
     ], 'ldap_first_entry', "cdecl")
 
     dll.add_function('ldap_next_entry', 'LPVOID',[
-        ['DWORD', 'ld', 'in'],
-        ['DWORD', 'entry', 'in']
+        ['LPVOID', 'ld', 'in'],
+        ['LPVOID', 'entry', 'in']
     ], 'ldap_next_entry', "cdecl")
 
     dll.add_function('ldap_first_attributeA', 'PCHAR',[
-        ['DWORD', 'ld', 'in'],
-        ['DWORD', 'entry', 'in'],
-        ['DWORD', 'ptr', 'in']
+        ['LPVOID', 'ld', 'in'],
+        ['LPVOID', 'entry', 'in'],
+        ['PLPVOID', 'ptr', 'out']
     ], 'ldap_first_attributeA', "cdecl")
 
     dll.add_function('ldap_next_attributeA', 'PCHAR',[
         ['DWORD', 'ld', 'in'],
         ['DWORD', 'entry', 'in'],
-        ['DWORD', 'ptr', 'inout']
+        ['ULONG_PTR', 'ptr', 'inout']
     ], 'ldap_next_attributeA', "cdecl")
 
     dll.add_function('ldap_count_values', 'DWORD',[
-        ['DWORD', 'vals', 'in'],
+        ['PLPVOID', 'vals', 'in'],
     ], 'ldap_count_values', "cdecl")
 
     dll.add_function('ldap_get_values', 'PLPVOID',[
-        ['DWORD', 'ld', 'in'],
-        ['DWORD', 'entry', 'in'],
+        ['LPVOID', 'ld', 'in'],
+        ['LPVOID', 'entry', 'in'],
         ['PCHAR', 'attr', 'in']
     ], 'ldap_get_values', "cdecl")
 
     dll.add_function('ldap_value_free', 'DWORD',[
-        ['DWORD', 'vals', 'in'],
+        ['PLPVOID', 'vals', 'in'],
     ], 'ldap_value_free', "cdecl")
 
     dll.add_function('ldap_memfree', 'VOID',[
-        ['DWORD', 'block', 'in'],
+        ['PCHAR', 'block', 'in'],
     ], 'ldap_memfree', "cdecl")
 
     dll.add_function('ber_free', 'VOID',[
-        ['DWORD', 'pBerElement', 'in'],
+        ['LPVOID', 'pBerElement', 'in'],
         ['DWORD', 'fbuf', 'in'],
     ], 'ber_free', "cdecl")
 
-    dll.add_function('LdapGetLastError', 'DWORD',[], 'LdapGetLastError', "cdecl")
+    dll.add_function('LdapGetLastError', 'DWORD', [], 'LdapGetLastError', "cdecl")
 
     dll.add_function('ldap_err2string', 'PCHAR',[
         ['DWORD', 'err', 'in']
     ], 'ldap_err2string', "cdecl")
 
     dll.add_function('ldap_msgfree', 'DWORD', [
-      ['DWORD', 'res', 'in']
+      ['LPVOID', 'res', 'in']
     ], 'ldap_msgfree', "cdecl")
 
     dll.add_function('ldap_unbind', 'DWORD', [
-      ['DWORD', 'ld', 'in']
+      ['LPVOID', 'ld', 'in']
     ], 'ldap_unbind', "cdecl")
     return dll
   end
