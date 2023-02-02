@@ -12,7 +12,7 @@ class Def_windows_wldap32
   def self.create_library(constant_manager, library_path = 'wldap32')
     dll = Library.new(library_path, constant_manager)
 
-    dll.add_function('ldap_sslinitA', 'DWORD',[
+    dll.add_function('ldap_sslinitA', 'LPVOID',[
         ['PCHAR', 'HostName', 'in'],
         ['DWORD', 'PortNumber', 'in'],
         ['DWORD', 'secure', 'in']
@@ -48,8 +48,8 @@ class Def_windows_wldap32
         ['PCHAR', 'filter', 'in'],
         ['PCHAR', 'attrs[]', 'in'],
         ['ULONG', 'attrsonly', 'in'],
-        ['PVOID', 'pServerControls', 'in'],
-        ['PVOID', 'pClientControls', 'in'],
+        ['LPVOID', 'pServerControls', 'in'],
+        ['LPVOID', 'pClientControls', 'in'],
         ['PBLOB', 'pTimeout', 'in'],
         ['ULONG', 'SizeLimit', 'in'],
         ['PLPVOID', 'res', 'out']
@@ -60,23 +60,23 @@ class Def_windows_wldap32
         ['DWORD', 'res', 'in']
     ], "ldap_count_entries", "cdecl")
 
-    dll.add_function('ldap_first_entry', 'DWORD',[
+    dll.add_function('ldap_first_entry', 'LPVOID',[
         ['DWORD', 'ld', 'in'],
         ['DWORD', 'res', 'in']
     ], 'ldap_first_entry', "cdecl")
 
-    dll.add_function('ldap_next_entry', 'DWORD',[
+    dll.add_function('ldap_next_entry', 'LPVOID',[
         ['DWORD', 'ld', 'in'],
         ['DWORD', 'entry', 'in']
     ], 'ldap_next_entry', "cdecl")
 
-    dll.add_function('ldap_first_attributeA', 'DWORD',[
+    dll.add_function('ldap_first_attributeA', 'PCHAR',[
         ['DWORD', 'ld', 'in'],
         ['DWORD', 'entry', 'in'],
         ['DWORD', 'ptr', 'in']
     ], 'ldap_first_attributeA', "cdecl")
 
-    dll.add_function('ldap_next_attributeA', 'DWORD',[
+    dll.add_function('ldap_next_attributeA', 'PCHAR',[
         ['DWORD', 'ld', 'in'],
         ['DWORD', 'entry', 'in'],
         ['DWORD', 'ptr', 'inout']
@@ -86,7 +86,7 @@ class Def_windows_wldap32
         ['DWORD', 'vals', 'in'],
     ], 'ldap_count_values', "cdecl")
 
-    dll.add_function('ldap_get_values', 'DWORD',[
+    dll.add_function('ldap_get_values', 'PLPVOID',[
         ['DWORD', 'ld', 'in'],
         ['DWORD', 'entry', 'in'],
         ['PCHAR', 'attr', 'in']
@@ -107,7 +107,7 @@ class Def_windows_wldap32
 
     dll.add_function('LdapGetLastError', 'DWORD',[], 'LdapGetLastError', "cdecl")
 
-    dll.add_function('ldap_err2string', 'DWORD',[
+    dll.add_function('ldap_err2string', 'PCHAR',[
         ['DWORD', 'err', 'in']
     ], 'ldap_err2string', "cdecl")
 
