@@ -36,9 +36,9 @@ class Def_windows_wldap32
     ], 'ldap_search_sA', "cdecl")
 
     dll.add_function('ldap_set_option', 'DWORD',[
-        ['LPVOID', 'ld', 'in'],
+        ['ULONG_PTR', 'ld', 'in'],
         ['DWORD', 'option', 'in'],
-        ['LPVOID', 'invalue', 'in']
+        ['DWORD', 'invalue', 'in']
     ], 'ldap_set_option', "cdecl")
 
     dll.add_function('ldap_search_ext_sA', 'DWORD',[
@@ -60,12 +60,12 @@ class Def_windows_wldap32
         ['LPVOID', 'res', 'in']
     ], "ldap_count_entries", "cdecl")
 
-    dll.add_function('ldap_first_entry', 'LPVOID',[
+    dll.add_function('ldap_first_entry', 'ULONG_PTR',[
         ['LPVOID', 'ld', 'in'],
         ['LPVOID', 'res', 'in']
     ], 'ldap_first_entry', "cdecl")
 
-    dll.add_function('ldap_next_entry', 'LPVOID',[
+    dll.add_function('ldap_next_entry', 'ULONG_PTR',[
         ['LPVOID', 'ld', 'in'],
         ['LPVOID', 'entry', 'in']
     ], 'ldap_next_entry', "cdecl")
