@@ -14,18 +14,18 @@ class Def_windows_wldap32
 
     dll.add_function('ldap_sslinitA', 'LPVOID',[
         ['PCHAR', 'HostName', 'in'],
-        ['DWORD', 'PortNumber', 'in'],
+        ['ULONG', 'PortNumber', 'in'],
         ['DWORD', 'secure', 'in']
     ], 'ldap_sslinitA', "cdecl")
 
-    dll.add_function('ldap_bind_sA', 'DWORD',[
+    dll.add_function('ldap_bind_sA', 'ULONG',[
         ['LPVOID', 'ld', 'in'],
         ['PCHAR', 'dn', 'in'],
         ['PCHAR', 'cred', 'in'],
-        ['DWORD', 'method', 'in']
+        ['ULONG', 'method', 'in']
     ], 'ldap_bind_sA', "cdecl")
 
-    dll.add_function('ldap_search_sA', 'DWORD',[
+    dll.add_function('ldap_search_sA', 'ULONG',[
         ['LPVOID', 'ld', 'in'],
         ['PCHAR', 'base', 'in'],
         ['ULONG', 'scope', 'in'],
@@ -35,13 +35,13 @@ class Def_windows_wldap32
         ['PLPVOID', 'res', 'out']
     ], 'ldap_search_sA', "cdecl")
 
-    dll.add_function('ldap_set_option', 'DWORD',[
+    dll.add_function('ldap_set_option', 'ULONG',[
         ['LPVOID', 'ld', 'in'],
         ['DWORD', 'option', 'in'],
         ['PBLOB', 'invalue', 'in']
     ], 'ldap_set_option', "cdecl")
 
-    dll.add_function('ldap_search_ext_sA', 'DWORD',[
+    dll.add_function('ldap_search_ext_sA', 'ULONG',[
         ['LPVOID', 'ld', 'in'],
         ['PCHAR', 'base', 'in'],
         ['ULONG', 'scope', 'in'],
@@ -55,7 +55,7 @@ class Def_windows_wldap32
         ['PLPVOID', 'res', 'out']
     ], 'ldap_search_ext_sA', "cdecl")
 
-    dll.add_function('ldap_count_entries', 'DWORD',[
+    dll.add_function('ldap_count_entries', 'ULONG',[
         ['LPVOID', 'ld', 'in'],
         ['LPVOID', 'res', 'in']
     ], "ldap_count_entries", "cdecl")
@@ -77,12 +77,12 @@ class Def_windows_wldap32
     ], 'ldap_first_attributeA', "cdecl")
 
     dll.add_function('ldap_next_attributeA', 'PCHAR',[
-        ['DWORD', 'ld', 'in'],
-        ['DWORD', 'entry', 'in'],
+        ['LPVOID', 'ld', 'in'],
+        ['LPVOID', 'entry', 'in'],
         ['PBLOB', 'ptr', 'inout']
     ], 'ldap_next_attributeA', "cdecl")
 
-    dll.add_function('ldap_count_values', 'DWORD',[
+    dll.add_function('ldap_count_values', 'ULONG',[
         ['PLPVOID', 'vals', 'in'],
     ], 'ldap_count_values', "cdecl")
 
@@ -92,7 +92,7 @@ class Def_windows_wldap32
         ['PCHAR', 'attr', 'in']
     ], 'ldap_get_values', "cdecl")
 
-    dll.add_function('ldap_value_free', 'DWORD',[
+    dll.add_function('ldap_value_free', 'ULONG',[
         ['PLPVOID', 'vals', 'in'],
     ], 'ldap_value_free', "cdecl")
 
@@ -105,17 +105,17 @@ class Def_windows_wldap32
         ['DWORD', 'fbuf', 'in'],
     ], 'ber_free', "cdecl")
 
-    dll.add_function('LdapGetLastError', 'DWORD', [], 'LdapGetLastError', "cdecl")
+    dll.add_function('LdapGetLastError', 'ULONG', [], 'LdapGetLastError', "cdecl")
 
     dll.add_function('ldap_err2string', 'PCHAR',[
-        ['DWORD', 'err', 'in']
+        ['ULONG', 'err', 'in']
     ], 'ldap_err2string', "cdecl")
 
-    dll.add_function('ldap_msgfree', 'DWORD', [
+    dll.add_function('ldap_msgfree', 'ULONG', [
       ['LPVOID', 'res', 'in']
     ], 'ldap_msgfree', "cdecl")
 
-    dll.add_function('ldap_unbind', 'DWORD', [
+    dll.add_function('ldap_unbind', 'ULONG', [
       ['LPVOID', 'ld', 'in']
     ], 'ldap_unbind', "cdecl")
     return dll
