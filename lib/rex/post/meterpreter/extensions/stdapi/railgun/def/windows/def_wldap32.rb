@@ -79,7 +79,7 @@ class Def_windows_wldap32
     dll.add_function('ldap_next_attributeA', 'PCHAR',[
         ['LPVOID', 'ld', 'in'],
         ['LPVOID', 'entry', 'in'],
-        ['PBLOB', 'ptr', 'inout']
+        ['LPVOID', 'ptr', 'inout']
     ], 'ldap_next_attributeA', "cdecl")
 
     dll.add_function('ldap_count_values', 'ULONG',[
