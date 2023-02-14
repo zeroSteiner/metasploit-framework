@@ -83,17 +83,17 @@ class Def_windows_wldap32
     ], 'ldap_next_attributeA', "cdecl")
 
     dll.add_function('ldap_count_values', 'ULONG',[
-        ['PLPVOID', 'vals', 'in'],
+        ['LPVOID', 'vals', 'in'],
     ], 'ldap_count_values', "cdecl")
 
-    dll.add_function('ldap_get_values', 'PLPVOID',[
+    dll.add_function('ldap_get_values', 'LPVOID',[
         ['LPVOID', 'ld', 'in'],
         ['LPVOID', 'entry', 'in'],
         ['PCHAR', 'attr', 'in']
     ], 'ldap_get_values', "cdecl")
 
     dll.add_function('ldap_value_free', 'ULONG',[
-        ['PLPVOID', 'vals', 'in'],
+        ['LPVOID', 'vals', 'in'],
     ], 'ldap_value_free', "cdecl")
 
     dll.add_function('ldap_memfree', 'VOID',[
