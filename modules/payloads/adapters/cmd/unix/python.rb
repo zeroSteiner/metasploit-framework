@@ -20,6 +20,11 @@ module MetasploitModule
         'AdaptedPlatform' => 'python'
       )
     )
+    register_advanced_options(
+      [
+        OptString.new('PythonPath', [false, 'The path to the Python executable (blank for automatic detection)', ''])
+      ]
+    )
   end
 
   def compatible?(mod)
@@ -37,6 +42,12 @@ module MetasploitModule
       payload = Msf::Payload::Python.create_exec_stub(payload)
     end
 
-    "echo #{Shellwords.escape(payload)} | exec $(which python || which python3 || which python2) -"
+    if datastore['PythonPath'].blank?
+      exec_target = '$(which python || which python3 || which python2)'
+    else
+      exec_target = "'#{datastore['PythonPath']}'"
+    end
+
+    "echo #{Shellwords.escape(payload)} | exec #{exec_target} -"
   end
 end
