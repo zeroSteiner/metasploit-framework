@@ -53,3 +53,5 @@ group :test do
   gem 'timecop'
 end
 
+# remove after the feature branch has been merged into rapid7/rex-text
+gem 'rex-text', git: 'https://github.com/zeroSteiner/rex-text', branch: 'feat/block-api-iv'
