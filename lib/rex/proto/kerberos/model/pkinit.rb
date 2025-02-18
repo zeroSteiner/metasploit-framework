@@ -66,16 +66,19 @@ module Rex
             end
           end
 
+          # see: https://datatracker.ietf.org/doc/html/rfc5652#section-3
           class ContentInfo < RASN1::Model
             sequence :content_info,
                      content: [objectid(:content_type),
                                # In our case, expected to be SignedData
-                               any(:signed_data)
+                               any(:content)
             ]
 
-            def signed_data
+            def content
               if self[:content_type].value == '1.2.840.113549.1.7.2'
-                SignedData.parse(self[:signed_data].value)
+                SignedData.parse(self[:content].value)
+              elsif self[:content_type].value == '1.2.840.113549.1.7.3'
+                EnvelopedData.parse(self[:content].value)
               end
             end
           end
@@ -103,6 +106,85 @@ module Rex
                 AuthPack.parse(self[:econtent].value)
               end
             end
+          end
+
+          class OriginatorInfo < RASN1::Model
+            # todo: this one needs to be filled out
+            sequence :content,
+                     explicit: 1, optional: true,
+                     content: [any(:certificate_set, implicit: 0, optional: true),
+                               any(:revocation_info_choices, implicit: 1, optional: true)
+            ]
+          end
+
+          # see: https://www.rfc-editor.org/rfc/rfc5652#section-10.2.7
+          class OtherKeyAttribute < RASN1::Model
+            sequence :content,
+                     content: [objectid(:key_attr_id),
+                               any(:key_attr, optional: true)
+            ]
+          end
+
+          # see: https://www.rfc-editor.org/rfc/rfc5652#section-6.2.3
+          class KEKIdentifier < RASN1::Model
+            sequence :content,
+                     content: [octet_string(:key_identifier),
+                               generalized_time(:date, optional: true),
+                               model(:other, OtherKeyAttribute)
+            ]
+          end
+
+          # see: https://www.rfc-editor.org/rfc/rfc5652#section-10.1.3
+          class KeyEncryptionAlgorithmIdentifier < RASN1::Model
+            sequence :content,
+                     content: [objectid(:algorithm),
+                               any(:parameters, optional: true)
+            ]
+          end
+
+          # see: https://www.rfc-editor.org/rfc/rfc5652#section-6.2.3
+          class KEKRecipientInfo < RASN1::Model
+            sequence :content,
+                     implicit: 2,
+                     content: [integer(:version),
+                               model(:kekid, KEKIdentifier),
+                               model(:key_encryption_algorithm, KeyEncryptionAlgorithmIdentifier),
+                               octet_string(:encrypted_key)
+            ]
+          end
+
+          # see: https://www.rfc-editor.org/rfc/rfc5652#section-6.2
+          class RecipientInfo < RASN1::Model
+            choice :content,
+                   content: [model(:kekri, KEKRecipientInfo)
+            ]
+          end
+
+          class ContentEncryptionAlgorithmIdentifier < RASN1::Model
+            sequence :content,
+                     content: [objectid(:algorithm),
+                               any(:parameters, optional: true)
+            ]
+          end
+
+          class EncryptedContentInfo < RASN1::Model
+            sequence :content,
+                     content: [objectid(:content_type),
+                               model(:content_encryption_algorithm, ContentEncryptionAlgorithmIdentifier),
+                               octet_string(:encrypted_content, implicit: 0, optional: true)
+            ]
+          end
+
+          # see: https://www.rfc-editor.org/rfc/rfc5652#section-6.1
+          class EnvelopedData < RASN1::Model
+            sequence :content,
+                     explicit: 0, constructed: true,
+                     content: [integer(:version),
+                               model(:originator_info, OriginatorInfo),
+                               set_of(:recipient_infos, RecipientInfo),
+                               model(:encrypted_content_info, EncryptedContentInfo),
+                               set_of(:unprotected_attrs, Attribute, implicit: 1, optional: true)
+            ]
           end
 
           class Name
@@ -173,7 +255,7 @@ module Rex
 
           class SubjectPublicKeyInfo < RASN1::Model
             sequence :subject_public_key_info,
-                    explicit: 1, constructed: true, optional: true,
+                     explicit: 1, constructed: true, optional: true,
                      content: [model(:algorithm, AlgorithmIdentifier),
                                bit_string(:subject_public_key)
             ]
