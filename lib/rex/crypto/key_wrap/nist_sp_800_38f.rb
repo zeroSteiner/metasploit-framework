@@ -4,11 +4,21 @@ module Rex::Crypto; end
 module Rex::Crypto::KeyWrap; end
 
 module Rex::Crypto::KeyWrap::NIST_SP_800_38f
-  def self.aes_unwrap_a2(kek, ciphertext)
+
+  # Performs AES key unwrapping from NIST SP 800-38F.
+  #
+  # @param kek [String] The key-encryption key (KEK) used to unwrap the ciphertext.
+  # @param key_data [String] The wrapped key data.
+  # @param authenticated [Boolean] Whether to check the data integrity or not.
+  # @return [String, nil] The unwrapped key on success, or nil if unwrapping fails.
+  #
+  # @see https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38F.pdf
+  def self.aes_unwrap(kek, key_data, authenticated: true)
+    # padded mode as described in Section 6.3 is not supported at this time
     raise ArgumentError.new('kek must be 16, 24 or 32-bytes long') unless [16, 24, 32].include?(kek.length)
     icv1 = ("\xa6".b * 8)
 
-    r = ciphertext.bytes.each_slice(8).map { |c| c.pack('C*') }
+    r = key_data.bytes.each_slice(8).map { |c| c.pack('C*') }
     a = r.shift
 
     ciph = -> (data) do
@@ -31,7 +41,10 @@ module Rex::Crypto::KeyWrap::NIST_SP_800_38f
       end
     end
 
-    return nil unless a == icv1
+    # setting authenticated to true effectively switches the operation from Section 6.2 algorithm #2 to algorithm #4
+    if authenticated && a != icv1
+      raise Rex::RuntimeError.new('ICV1 integrity check failed in KW-AD(C)')
+    end
 
     r.join('')
   end
