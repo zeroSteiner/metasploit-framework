@@ -118,6 +118,15 @@ class MetasploitModule < Msf::Auxiliary
       end
       @ldap = ldap
 
+      unless is_active_directory?(ldap)
+        return Exploit::CheckCode::Safe('The target LDAP server is not an Active Directory Domain Controller.')
+      end
+
+      domain_info = adds_get_domain_info(ldap)
+      if domain_info[:behavior_version] < DS_BEHAVIOR_WIN2016
+        return Exploit::CheckCode::Safe('The target Active Directory Domain\'s compatibility level is insufficient (pre-2016).')
+      end
+
       obj = get_target_account
       if obj.nil?
         return Exploit::CheckCode::Unknown('Failed to find the specified object.')
