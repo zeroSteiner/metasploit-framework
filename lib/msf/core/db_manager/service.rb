@@ -30,6 +30,7 @@ module Msf::DBManager::Service
   end
 
   def find_or_create_service(opts)
+
     report_service(opts)
   end
 
@@ -210,7 +211,7 @@ module Msf::DBManager::Service
         return
       end
       service_obj.state ||= Msf::ServiceState::Open
-      service_obj.info ||= ''
+      service_obj.info = service[:info] if service[:info]
 
       if parents
         parents.each do |parent|
