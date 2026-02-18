@@ -5,7 +5,7 @@ module Msf
 
 ###
 #
-# Local network address option.
+# Network address option that allows referencing an address based on the name of the interface it's associated with.
 #
 ###
 class OptAddressLocal < OptAddress
