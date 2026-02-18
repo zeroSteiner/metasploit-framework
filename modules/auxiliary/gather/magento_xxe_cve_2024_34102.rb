@@ -39,6 +39,7 @@ class MetasploitModule < Msf::Auxiliary
 
     register_options(
       [
+        OptAddressRoutable.new('SRVHOST', [true, 'The local host to listen on and use for incoming connections.', Rex::Socket.source_address]),
         OptString.new('TARGETURI', [ true, 'The base path to the web application', '/']),
         OptString.new('TARGETFILE', [ true, 'The target file to read', '/etc/passwd']),
         OptBool.new('STORE_LOOT', [true, 'Store the target file as loot', false])
@@ -150,10 +151,6 @@ class MetasploitModule < Msf::Auxiliary
   end
 
   def run
-    if datastore['SRVHOST'] == '0.0.0.0' || datastore['SRVHOST'] == '::'
-      fail_with(Failure::BadConfig, 'SRVHOST must be set to an IP address (0.0.0.0 is invalid) for exploitation to be successful')
-    end
-
     start_service({
       'Uri' => {
         'Proc' => proc do |cli, req|
