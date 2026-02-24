@@ -58,7 +58,7 @@ class MetasploitModule < Msf::Auxiliary
 
   # Setup the server module and start handling requests
   def run
-    print_status("Listening on #{datastore['SRVHOST']}:#{datastore['SRVPORT']}...")
+    print_status("Listening on #{srvhost}:#{datastore['SRVPORT']}...")
     exploit
   end
 

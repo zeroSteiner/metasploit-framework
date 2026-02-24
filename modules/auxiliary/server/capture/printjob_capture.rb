@@ -55,7 +55,7 @@ class MetasploitModule < Msf::Auxiliary
     @state = {}
 
     begin
-      @srvhost = datastore['SRVHOST']
+      @srvhost = srvhost
       @srvport = datastore['SRVPORT'] || 9100
       @mode = datastore['MODE'].upcase || 'RAW'
       if datastore['FORWARD']

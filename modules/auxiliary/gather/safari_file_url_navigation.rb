@@ -48,10 +48,10 @@ class MetasploitModule < Msf::Auxiliary
 
   def lookup_lhost(c = nil)
     # Get the source address
-    if datastore['SRVHOST'] == '0.0.0.0'
+    if srvhost == '0.0.0.0'
       Rex::Socket.source_address(c || '50.50.50.50')
     else
-      datastore['SRVHOST']
+      srvhost
     end
   end
 
@@ -231,7 +231,7 @@ class MetasploitModule < Msf::Auxiliary
 
     # Default the server host / port
     opts = {
-      'ServerHost' => datastore['SRVHOST'],
+      'ServerHost' => srvhost,
       'ServerPort' => datastore['HTTPPORT'],
       'Comm' => comm
     }.update(opts)
