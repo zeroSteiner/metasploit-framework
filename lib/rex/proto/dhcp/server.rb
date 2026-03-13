@@ -20,19 +20,29 @@ class Server
 
   include Rex::Socket
 
-  def initialize(hash, context = {})
+  def self.hardcore_alias(*args)
+    # args[0] = port, args[1] = listen_host
+    "#{args[1] || ''}-#{args[0] || 67}"
+  end
+
+  def alias
+    super || "DHCP Server"
+  end
+
+  def initialize(port = 67, listen_host = '0.0.0.0', context = {}, comm = nil, opts = {})
     self.listen_host = '0.0.0.0' # clients don't already have addresses. Needs to be 0.0.0.0
-    self.listen_port = 67 # mandatory (bootps)
+    self.listen_port = port
     self.context = context
+    self.comm = comm
     self.sock = nil
 
-    self.myfilename = hash['FILENAME'] || ""
+    self.myfilename = opts['Filename'] || ""
     self.myfilename << ("\x00" * (128 - self.myfilename.length))
 
-    source = hash['SRVHOST'] || Rex::Socket.source_address
+    source = listen_host || Rex::Socket.source_address
     self.ipstring = Rex::Socket.addr_aton(source)
 
-    ipstart = hash['DHCPIPSTART']
+    ipstart = opts['IpStart']
     if ipstart
       self.start_ip = Rex::Socket.addr_atoi(ipstart)
     else
@@ -42,7 +52,7 @@ class Server
     end
     self.current_ip = start_ip
 
-    ipend = hash['DHCPIPEND']
+    ipend = opts['IpEnd']
     if ipend
       self.end_ip = Rex::Socket.addr_atoi(ipend)
     else
@@ -52,40 +62,40 @@ class Server
     end
 
     # netmask
-    netmask = hash['NETMASK'] || "255.255.255.0"
+    netmask = opts['Netmask'] || "255.255.255.0"
     self.netmaskn = Rex::Socket.addr_aton(netmask)
 
     # router
-    router = hash['ROUTER'] || source
+    router = opts['Router'] || source
     self.router = Rex::Socket.addr_aton(router)
 
     # dns
-    dnsserv = hash['DNSSERVER'] || source
+    dnsserv = opts['DnsServer'] || source
     self.dnsserv = Rex::Socket.addr_aton(dnsserv)
 
     # broadcast
-    if hash['BROADCAST']
-      self.broadcasta = Rex::Socket.addr_aton(hash['BROADCAST'])
+    if opts['Broadcast']
+      self.broadcasta = Rex::Socket.addr_aton(opts['Broadcast'])
     else
       self.broadcasta = Rex::Socket.addr_itoa( self.start_ip | (Rex::Socket.addr_ntoi(self.netmaskn) ^ 0xffffffff) )
     end
 
-    self.interface = hash['DHCPINTERFACE'] || nil
+    self.interface = opts['Interface'] || nil
 
     self.served = {}
-    self.serveOnce = hash.include?('SERVEONCE')
+    self.serveOnce = opts.include?('ServeOnce')
 
-    self.servePXE = (hash.include?('PXE') or hash.include?('FILENAME') or hash.include?('PXEONLY'))
-    self.serveOnlyPXE = hash.include?('PXEONLY')
+    self.servePXE = (opts.include?('PXE') or opts.include?('Filename') or opts.include?('PXEOnly'))
+    self.serveOnlyPXE = opts.include?('PXEOnly')
 
     # Always assume we don't give out hostnames ...
     self.give_hostname = false
     self.served_over = 0
-    if (hash['HOSTNAME'])
+    if (opts['Hostname'])
       self.give_hostname = true
-      self.served_hostname = hash['HOSTNAME']
-      if ( hash['HOSTSTART'] )
-        self.served_over = hash['HOSTSTART'].to_i
+      self.served_hostname = opts['Hostname']
+      if (opts['HostnameCounter'])
+        self.served_over = opts['HostnameCounter'].to_i
       end
     end
 
@@ -96,8 +106,8 @@ class Server
     self.pxepathprefix = ""
     self.pxereboottime = 2000
 
-    self.domain_name = hash['DOMAINNAME'] || nil
-    self.url = hash['URL'] if hash.include?('URL')
+    self.domain_name = opts['DomainName'] || nil
+    self.url = opts['Url'] if opts.include?('Url')
   end
 
   def report(&block)
@@ -109,7 +119,8 @@ class Server
     self.sock = Rex::Socket::Udp.create(
       'LocalHost' => listen_host,
       'LocalPort' => listen_port,
-      'Context'   => context
+      'Context'   => context,
+      'Comm'      => comm
     )
 
     # Dynamically bind to interface if provided
@@ -159,7 +170,7 @@ class Server
     end
   end
 
-  attr_accessor :listen_host, :listen_port, :context, :leasetime, :relayip, :router, :dnsserv
+  attr_accessor :listen_host, :listen_port, :context, :comm, :leasetime, :relayip, :router, :dnsserv
   attr_accessor :domain_name, :proxy_auto_discovery, :interface
   attr_accessor :sock, :thread, :myfilename, :ipstring, :served, :serveOnce
   attr_accessor :current_ip, :start_ip, :end_ip, :broadcasta, :netmaskn

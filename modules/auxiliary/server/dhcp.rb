@@ -26,11 +26,8 @@ class MetasploitModule < Msf::Auxiliary
   end
 
   def run
-    @dhcp = Rex::Proto::DHCP::Server.new(datastore)
-
     print_status("Starting DHCP server...")
-    @dhcp.start
-    add_socket(@dhcp.sock)
+    start_service
 
     # Wait for finish..
     while @dhcp.thread.alive?
@@ -38,6 +35,6 @@ class MetasploitModule < Msf::Auxiliary
     end
 
     print_status("Stopping DHCP server...")
-    @dhcp.stop
+    stop_service
   end
 end

