@@ -55,3 +55,5 @@ group :test do
   gem 'timecop'
 end
 
+gem 'ruby_smb', path: '../ruby_smb'
+

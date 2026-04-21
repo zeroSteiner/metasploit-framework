@@ -1,4 +1,14 @@
 PATH
+  remote: ../ruby_smb
+  specs:
+    ruby_smb (3.3.18)
+      bindata (= 2.4.15)
+      openssl-ccm
+      openssl-cmac
+      rubyntlm (>= 0.6.5)
+      windows_error (>= 0.1.4)
+
+PATH
   remote: .
   specs:
     metasploit-framework (6.4.129)
@@ -593,12 +603,6 @@ GEM
     ruby-progressbar (1.13.0)
     ruby-rc4 (0.1.5)
     ruby2_keywords (0.0.5)
-    ruby_smb (3.3.17)
-      bindata (= 2.4.15)
-      openssl-ccm
-      openssl-cmac
-      rubyntlm (>= 0.6.5)
-      windows_error (>= 0.1.4)
     rubyntlm (0.6.5)
       base64
     rubyzip (2.4.1)
@@ -696,6 +700,7 @@ DEPENDENCIES
   rspec-rerun
   rubocop (= 1.75.7)
   ruby-prof
+  ruby_smb!
   simplecov (= 0.18.2)
   test-prof
   timecop
