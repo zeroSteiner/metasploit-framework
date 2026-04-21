@@ -104,7 +104,7 @@ class MetasploitModule < Msf::Auxiliary
     data = [ pass, share, '?????' ].collect { |a| a + "\x00" }.join('')
 
     pkt = Rex::Proto::SMB::Constants::SMB_TREE_CONN_PKT.make_struct
-    simple.client.smb_defaults(pkt['Payload']['SMB'])
+    simple.smb_defaults(pkt['Payload']['SMB'])
 
     pkt['Payload']['SMB'].v['Command'] = Rex::Proto::SMB::Constants::SMB_COM_TREE_CONNECT_ANDX
     pkt['Payload']['SMB'].v['Flags1'] = 0x18

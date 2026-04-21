@@ -99,7 +99,7 @@ class MetasploitModule < Msf::Auxiliary
     impersonation = 2
 
     pkt = Rex::Proto::SMB::Constants::SMB_CREATE_PKT.make_struct
-    simple.client.smb_defaults(pkt['Payload']['SMB'])
+    simple.smb_defaults(pkt['Payload']['SMB'])
 
     pkt['Payload']['SMB'].v['Command'] = Rex::Proto::SMB::Constants::SMB_COM_NT_CREATE_ANDX
     pkt['Payload']['SMB'].v['Flags1'] = 0x18

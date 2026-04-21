@@ -231,7 +231,7 @@ class MetasploitModule < Msf::Auxiliary
     # make a raw transaction packet
     # this one is a trans2 packet, the checker is trans
     pkt = Rex::Proto::SMB::Constants::SMB_TRANS2_PKT.make_struct
-    simple.client.smb_defaults(pkt['Payload']['SMB'])
+    simple.smb_defaults(pkt['Payload']['SMB'])
 
     # opcode 0x0e = SESSION_SETUP
     setup = "\x0e\x00\x00\x00"
@@ -268,7 +268,7 @@ class MetasploitModule < Msf::Auxiliary
   def make_smb_trans_ms17_010(tree_id)
     # make a raw transaction packet
     pkt = Rex::Proto::SMB::Constants::SMB_TRANS_PKT.make_struct
-    simple.client.smb_defaults(pkt['Payload']['SMB'])
+    simple.smb_defaults(pkt['Payload']['SMB'])
 
     # opcode 0x23 = PeekNamedPipe, fid = 0
     setup = "\x23\x00\x00\x00"

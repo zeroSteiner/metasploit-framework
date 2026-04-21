@@ -305,6 +305,13 @@ class SimpleClient
     end
   end
 
+  def smb_defaults(smb_header)
+    smb_header.v['MultiplexID'] = client.is_a?(RubySMB::Client) ? 0 : client.multiplex_id.to_i
+    smb_header.v['TreeID']      = client.last_tree_id.to_i
+    smb_header.v['UserID']      = client.is_a?(RubySMB::Client) ? client.user_id.to_i : client.auth_user_id.to_i
+    smb_header.v['ProcessID']   = client.is_a?(RubySMB::Client) ? 0 : client.process_id.to_i
+  end
+
   private
 
   attr_writer :address, :port
