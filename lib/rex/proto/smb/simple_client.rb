@@ -194,6 +194,7 @@ class SimpleClient
       ok = self.client.tree_connect(share)
 
       if self.client.is_a?(RubySMB::Client)
+        @last_tree = ok
         tree_id = ok.id
       else
         tree_id = ok['Payload']['SMB'].v['TreeID']
@@ -310,6 +311,37 @@ class SimpleClient
     smb_header.v['TreeID']      = client.last_tree_id.to_i
     smb_header.v['UserID']      = client.is_a?(RubySMB::Client) ? client.user_id.to_i : client.auth_user_id.to_i
     smb_header.v['ProcessID']   = client.is_a?(RubySMB::Client) ? 0 : client.process_id.to_i
+  end
+
+  def find_first(path)
+    raise NotImplementedError, 'find_first requires RubySMB client' unless client.is_a?(RubySMB::Client)
+
+    parts = path.split('\\').reject(&:empty?)
+    pattern = parts.pop || '*'
+    if parts.empty?
+      # SMB2/3 requires an empty name for the share root; SMB1 needs '\\'
+      dir = @last_tree.is_a?(RubySMB::SMB1::Tree) ? '\\' : ''
+    else
+      dir = '\\' + parts.join('\\')
+    end
+
+    entries = @last_tree.list(directory: dir, pattern: pattern)
+
+    entries.each_with_object({}) do |e, h|
+      attrs = e.respond_to?(:ext_file_attributes) ? e.ext_file_attributes : e.file_attributes
+      is_dir = attrs.directory == 1
+      last_write = e.last_write.to_i
+      name = e.file_name.to_s.encode('UTF-8', 'UTF-16LE').gsub(/\x00+$/, '')
+      h[name] = {
+        'type' => is_dir ? 'D' : 'F',
+        'attr' => is_dir ? 16 : 0,
+        'info' => [0, 0, 0, 0, 0, 0,
+                   last_write & 0xffffffff, (last_write >> 32) & 0xffffffff,
+                   last_write & 0xffffffff, (last_write >> 32) & 0xffffffff,
+                   e.end_of_file.to_i, 0,
+                   0, 0, is_dir ? 16 : 0, 0, 0, 0, 0]
+      }
+    end
   end
 
   private
