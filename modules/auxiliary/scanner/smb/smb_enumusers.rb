@@ -132,8 +132,8 @@ class MetasploitModule < Msf::Auxiliary
       end
     end
   ensure
-    samr_con.samr.close_handle(samr_con.domain_handle) if samr_con.domain_handle
-    samr_con.samr.close_handle(samr_con.server_handle) if samr_con.server_handle
+    samr_con&.samr&.close_handle(samr_con.domain_handle) if samr_con&.domain_handle
+    samr_con&.samr&.close_handle(samr_con.server_handle) if samr_con&.server_handle
   end
 
   def report_username(domain, username)
