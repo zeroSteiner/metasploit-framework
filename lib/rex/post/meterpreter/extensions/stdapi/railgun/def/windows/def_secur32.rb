@@ -50,6 +50,23 @@ class Def_windows_secur32
       ['PULONG', 'AuthenticationPackage', 'out']
     ])
 
+    dll.add_function('LsaLogonUser', 'NTSTATUS', [
+      ['HANDLE', 'LsaHandle', 'in'],
+      ['PBLOB', 'OriginName', 'in'],
+      ['ULONG', 'LogonType', 'in'],
+      ['ULONG', 'AuthenticationPackage', 'in'],
+      ['PBLOB', 'AuthenticationInformation', 'in'],
+      ['ULONG', 'AuthenticationInformationLength', 'in'],
+      ['PBLOB', 'LocalGroups', 'in'],
+      ['PBLOB', 'SourceContext', 'in'],
+      ['PLPVOID', 'ProfileBuffer', 'out'],
+      ['PULONG', 'ProfileBufferLength', 'out'],
+      ['PBLOB', 'LogonId', 'out'],
+      ['PHANDLE', 'Token', 'out'],
+      ['PBLOB', 'Quotas', 'out'],
+      ['PULONG', 'SubStatus', 'out']
+    ])
+
     dll.add_function('LsaRegisterLogonProcess', 'NTSTATUS', [
       ['PBLOB', 'LogonProcessName', 'in'],
       ['PHANDLE', 'LsaHandle', 'out'],
