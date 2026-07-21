@@ -382,6 +382,11 @@ module Msf
         @server_thread.kill
         print_warning('MCP server thread did not terminate gracefully, forced kill')
       end
+    rescue StandardError => e
+      # Thread#join re-raises any exception the thread died with. Swallow it here so a
+      # secondary failure during shutdown/cleanup doesn't clobber the original error that
+      # triggered this cleanup in the first place (e.g. in #start_server's rescue block).
+      elog('MCP server thread terminated with an exception', error: e)
     end
 
     def deregister_dispatcher
