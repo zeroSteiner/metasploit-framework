@@ -588,10 +588,14 @@ module Msf
     def wait_for_port!(host, port, service_name, timeout: 5)
       print_status("Waiting for #{service_name} to become available on #{Rex::Socket.to_authority(host, port.to_s)}...")
       result = poll_until_truthy(timeout: timeout, interval: 0.25) do
-        sock = Rex::Socket::Tcp.create('PeerHost' => host, 'PeerPort' => port.to_i, 'Timeout' => 1)
-        sock.close
+        # This checks a port the plugin itself just bound, not a pivoted/remote target, so a
+        # plain stdlib socket is used deliberately (see verify_port_available! below). Routing
+        # this through Rex::Socket would send it via the framework's DNS resolver whenever the
+        # DNS feature is enabled, which is slower than the OS resolver and can eat enough of the
+        # polling budget to lose the race against the target server's own startup.
+        Socket.tcp(host, port.to_i, connect_timeout: 1, &:close)
         true
-      rescue ::Rex::ConnectionRefused, ::Rex::ConnectionTimeout, ::Errno::ECONNREFUSED
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT
         nil
       end
 
