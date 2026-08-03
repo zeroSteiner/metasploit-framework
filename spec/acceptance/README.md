@@ -41,6 +41,13 @@ $env:SPEC_OPTS='--tag acceptance'; $env:SPEC_HELPER_LOAD_METASPLOIT=$false; $env
 Session types can be specified via the `SESSION` argument. Meterpreter and command shell are support and use the following notation:
 - SESSION=meterpreter/php
 - SESSION=command_shell/php
+- SESSION=command_shell/python (non-SSL Python shell payloads: `python/shell_reverse_tcp`, `python/shell_bind_tcp`, `cmd/unix/reverse_python`)
+
+Run just one payload flavor within a `SESSION` by filtering on a substring of its example description with rspec's `-e` flag, example:
+
+```
+SPEC_OPTS='--tag acceptance' SPEC_HELPER_LOAD_METASPLOIT=false SESSION=command_shell/python bundle exec rspec spec/acceptance/command_shell_spec.rb -e "shell_bind_tcp"
+```
 
 ### Postgres
 
